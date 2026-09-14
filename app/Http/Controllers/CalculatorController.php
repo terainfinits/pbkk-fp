@@ -101,4 +101,38 @@ class CalculatorController extends Controller
             ]);
         }
     }
+
+    public function calculateIpk(Request $request, $ip1 = null, $ip2 = null)
+    {
+        $result = 0;
+        $error = '';
+        $maxLength = 4;
+
+        if ($ip1 !== null) {
+            if (! is_numeric($ip1)) {
+                $error = 'Invalid input for IP1';
+            } elseif (strlen((string) $ip1) > $maxLength) {
+                $error = 'Number too large for IP1';
+            }
+        }
+
+        if ($ip2 !== null && $error === '') {
+            if (! is_numeric($ip2)) {
+                $error = 'Invalid input for IP2';
+            } elseif (strlen((string) $ip2) > $maxLength) {
+                $error = 'Number too large for IP2';
+            }
+        }
+
+        if ($ip1 !== null && $ip2 !== null && $error === '') {
+            $result = ($ip1 + $ip2) / 2;
+        }
+
+        return view('ipk_calculator', [
+            'initialIP1' => $ip1,
+            'initialIP2' => $ip2,
+            'initialResult' => ($ip1 !== null && $ip2 !== null && $error === '') ? $result : null,
+            'initialError' => $error,
+        ]);
+    }
 }

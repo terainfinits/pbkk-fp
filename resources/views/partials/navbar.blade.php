@@ -20,6 +20,12 @@
                         Agent
                     </a>
                 </li>
+                <li>
+                    <a href="{{ route('calculator.ipk') }}"
+                       class="py-2 transition duration-200 {{ request()->routeIs('calculator.ipk') ? 'text-[#0055B8] border-b-2 border-[#0055B8] font-bold' : 'text-slate-600 hover:text-blue-400 hover:border-b-2 hover:border-blue-400' }}">
+                        IPK Calculator
+                    </a>
+                </li>
             </ul>
         </nav>
 
