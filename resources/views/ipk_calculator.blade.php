@@ -21,10 +21,10 @@
             <!-- Main Calculator Card -->
             <div class="bg-white border border-slate-200/80 rounded-2xl p-6 sm:p-10 shadow-sm">
                 
-                <!-- Controller Error Alert -->
+                <!-- Error Alert (Handles server routes & dynamic frontend validation) -->
                 <div id="error-container" class="{{ !empty($initialError) ? '' : 'hidden' }} mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm flex items-center gap-3">
                     <i class="fa-solid fa-triangle-exclamation text-base text-red-500 shrink-0"></i>
-                    <span id="error-message">{{ $initialError }}</span>
+                    <span id="error-message">{{ $initialError ?? '' }}</span>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
@@ -42,12 +42,10 @@
                                     <i class="fa-solid fa-chart-line text-sm"></i>
                                 </div>
                                 <input 
-                                    type="number" 
+                                    type="text" 
+                                    inputmode="decimal"
                                     id="ip1" 
                                     name="ip1" 
-                                    step="0.01" 
-                                    min="0" 
-                                    max="4" 
                                     maxlength="5"
                                     value="{{ $initialIP1 }}"
                                     placeholder="e.g. 3.75"
@@ -66,12 +64,10 @@
                                     <i class="fa-solid fa-chart-line text-sm"></i>
                                 </div>
                                 <input 
-                                    type="number" 
+                                    type="text" 
+                                    inputmode="decimal"
                                     id="ip2" 
                                     name="ip2" 
-                                    step="0.01" 
-                                    min="0" 
-                                    max="4" 
                                     maxlength="5"
                                     value="{{ $initialIP2 }}"
                                     placeholder="e.g. 3.85"
@@ -113,6 +109,8 @@
                                 <span id="status-text">
                                     @if($initialResult !== null)
                                         Result Loaded
+                                    @elseif(!empty($initialError))
+                                        Invalid Input
                                     @else
                                         Enter both IPs
                                     @endif
@@ -141,39 +139,56 @@
             const errorMessage = document.getElementById('error-message');
             const btnReset = document.getElementById('btn-reset');
 
+            function validateSingleInput(value, fieldLabel) {
+                if (value === '') return null;
+
+                // 1. Strict non-numeric & pattern validation (catches "abc", negative signs, multiple decimals)
+                const numericRegex = /^\d+(\.\d*)?$/;
+                if (!numericRegex.test(value) || isNaN(Number(value))) {
+                    return `${fieldLabel}: Please enter a valid numeric value.`;
+                }
+
+                // 2. Character length validation
+                if (value.length > 4) {
+                    return `${fieldLabel}: Number length must not exceed 4 characters.`;
+                }
+
+                // 3. Range validation
+                const num = parseFloat(value);
+                if (num < 0 || num > 4) {
+                    return `${fieldLabel}: IP value must be between 0.00 and 4.00.`;
+                }
+
+                return null;
+            }
+
             function calculateRealtime() {
                 const val1 = ip1Input.value.trim();
                 const val2 = ip2Input.value.trim();
 
-                // Clear client side error
-                errorContainer.classList.add('hidden');
-                errorMessage.innerText = '';
+                // Validate each input field independently on keypress/input
+                const err1 = validateSingleInput(val1, 'IP Semester 1');
+                const err2 = validateSingleInput(val2, 'IP Semester 2');
 
+                if (err1 || err2) {
+                    showError(err1 || err2);
+                    return;
+                }
+
+                hideError();
+
+                // Clear result state if either box is incomplete
                 if (val1 === '' || val2 === '') {
                     resultDisplay.innerText = '0.00';
                     statusText.innerText = 'Enter both IPs';
                     return;
                 }
 
+                // Calculate final GPA when both are valid numbers
                 const num1 = parseFloat(val1);
                 const num2 = parseFloat(val2);
-
-                if (isNaN(num1) || isNaN(num2)) {
-                    showError('Please enter valid numeric values.');
-                    return;
-                }
-
-                if (val1.length > 5 || val2.length > 5) {
-                    showError('Number length must not exceed 5 characters.');
-                    return;
-                }
-
-                if (num1 < 0 || num1 > 4 || num2 < 0 || num2 > 4) {
-                    showError('IP value must be between 0.00 and 4.00.');
-                    return;
-                }
-
                 const avg = (num1 + num2) / 2;
+
                 resultDisplay.innerText = avg.toFixed(2);
                 statusText.innerText = 'Calculated';
             }
@@ -185,13 +200,18 @@
                 statusText.innerText = 'Invalid Input';
             }
 
+            function hideError() {
+                errorContainer.classList.add('hidden');
+                errorMessage.innerText = '';
+            }
+
             ip1Input.addEventListener('input', calculateRealtime);
             ip2Input.addEventListener('input', calculateRealtime);
 
             btnReset.addEventListener('click', function () {
                 ip1Input.value = '';
                 ip2Input.value = '';
-                errorContainer.classList.add('hidden');
+                hideError();
                 resultDisplay.innerText = '0.00';
                 statusText.innerText = 'Enter both IPs';
             });

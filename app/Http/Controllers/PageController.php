@@ -9,17 +9,26 @@ class PageController extends Controller
         return view('home');
     }
 
-    public function about()
-    {
-        return view('about');
-    }
-
-    // Rute: /agent/{tema?}
-    // Parameter diberi nilai default 'General Assistant Agent' jika kosong
     public function agent($tema = 'General Assistant Agent')
     {
-        // Mengirimkan variabel $tema ke tampilan agent.blade.php
-        return view('agent', compact('tema'));
+        $lowercaseTema = strtolower($tema);
+        $codingAliases = ['coding', 'coding assistant', 'coding assistant agent', 'coding-assistant', 'coding-assistant-agent', 'coding_assistant', 'coding_assistant_agent'];
+
+        $isCoding = in_array($lowercaseTema, $codingAliases);
+
+        $nextTema = $isCoding ? 'General Assistant Agent' : 'Coding Assistant Agent';
+
+        if ($isCoding) {
+            return view('fp_idea', [
+                'tema' => $tema,
+                'nextTema' => $nextTema,
+            ]);
+        }
+
+        return view('agent', [
+            'tema' => $tema,
+            'nextTema' => $nextTema,
+        ]);
     }
 
     public function mahasiswaDetail($nrp)

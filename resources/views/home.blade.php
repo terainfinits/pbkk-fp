@@ -100,7 +100,7 @@
                             'icon' => 'fa-laptop-code',
                             'desc' =>
                                 'Focuses on theoretical computer science, algorithms, database systems, cybersecurity, and intelligent systems engineering.',
-                            'curriculum_url' => '/curriculum/informatics-engineering',
+                            'url' => 'https://www.its.ac.id/informatika/akademik/program-studi/program-studi-s1/',
                         ],
                         [
                             'code' => 'RPL',
@@ -109,7 +109,7 @@
                             'icon' => 'fa-cubes text-3xl',
                             'desc' =>
                                 'Dedicated to modern enterprise software construction, microservices architecture, DevOps, agile methodologies, and quality assurance.',
-                            'curriculum_url' => '/curriculum/software-engineering',
+                            'url' => 'https://www.its.ac.id/informatika/akademik/program-studi/program-studi-sarjana-s1-rekayasa-perangkat-lunak/',
                         ],
                         [
                             'code' => 'RKA',
@@ -118,7 +118,7 @@
                             'icon' => 'fa-brain text-3xl',
                             'desc' =>
                                 'Specializes in machine learning, deep learning, computer vision, natural language processing, and scalable AI infrastructure.',
-                            'curriculum_url' => '/curriculum/ai-engineering',
+                            'url' => 'https://www.its.ac.id/informatika/akademik/program-studi/program-studi-sarjana-s1-rekayasa-kecerdasan-artifisial/',
                         ],
                     ];
                 @endphp
@@ -155,9 +155,9 @@
                         </div>
 
                         <div class="pt-6 border-t border-slate-200/80 flex items-center justify-between">
-                            <a href="{{ $major['curriculum_url'] }}"
+                            <a href="{{ $major['url'] }}"
                                 class="inline-flex items-center text-xs font-bold text-its-accent hover:text-its-blue transition group-hover:translate-x-1">
-                                Curriculum <i class="fa-solid fa-arrow-right ml-1.5"></i>
+                                Visit <i class="fa-solid fa-arrow-right ml-1.5"></i>
                             </a>
                         </div>
                     </div>
@@ -184,49 +184,49 @@
                 [
                     'name' => 'Algoritma dan Pemrograman (ALPRO)',
                     'icon' => 'fa-code',
-                    'url' => '/labs/alpro',
+                    'url' => 'https://www.its.ac.id/informatika/fasilitas/laboratorium/laboratorium-algoritma-dan-pemrograman/',
                     'image_url' => '/images/labs/alpro.png',
                 ],
                 [
                     'name' => 'Rekayasa Perangkat Lunak (RPL)',
                     'icon' => 'fa-diagram-project',
-                    'url' => '/labs/rpl',
+                    'url' => 'https://www.its.ac.id/informatika/fasilitas/laboratorium/laboratorium-rekayasa-perangkat-lunak/',
                     'image_url' => '/images/labs/rpl.png',
                 ],
                 [
                     'name' => 'Net-Centric Computing (NCC)',
                     'icon' => 'fa-network-wired',
-                    'url' => '/labs/kbj',
+                    'url' => 'https://www.its.ac.id/informatika/en/net-centric-computing-laboratory/',
                     'image_url' => '/images/labs/ncc.jpg',
                 ],
                 [
                     'name' => 'Komputasi Cerdas Visi (KCV)',
                     'icon' => 'fa-eye',
-                    'url' => '/labs/kcv',
+                    'url' => 'https://www.its.ac.id/informatika/en/laboratory/information-intelligent-management-laboratory/',
                     'image_url' => '/images/labs/kcv.jpeg',
                 ],
                 [
                     'name' => 'Arsitektur dan Jaringan Komputer (Netics)',
                     'icon' => 'fa-server',
-                    'url' => '/labs/ajk',
+                    'url' => 'https://www.its.ac.id/informatika/fasilitas/laboratorium/laboratorium-arsitektur-dan-jaringan-komputer/',
                     'image_url' => '/images/labs/netics.png',
                 ],
                 [
                     'name' => 'Pemodelan dan Komputasi Terapan (PKT)',
                     'icon' => 'fa-chart-pie',
-                    'url' => '/labs/sdk',
+                    'url' => 'https://www.its.ac.id/informatika/en/laboratory/applied-modelling-and-computation-laboratory/',
                     'image_url' => '/images/labs/pkt.jpg',
                 ],
                 [
                     'name' => 'Manajemen Cerdas Informasi (MCI)',
                     'icon' => 'fa-database',
-                    'url' => '/labs/mi',
+                    'url' => 'https://www.its.ac.id/informatika/en/laboratory/information-intelligent-management-laboratory/',
                     'image_url' => '/images/labs/mci.jpeg',
                 ],
                 [
-                    'name' => 'Grafika, Interaksi, dan Game (GIGA)',
+                    'name' => 'Grafika, Interaksi, Gim, dan Analitik (GIGA)',
                     'icon' => 'fa-vr-cardboard',
-                    'url' => '/labs/kcg',
+                    'url' => 'https://www.its.ac.id/informatika/fasilitas/laboratorium/laboratorium-grafika-interaksi-dan-game/',
                     'image_url' => '/images/labs/giga.png',
                 ],
             ];

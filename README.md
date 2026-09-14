@@ -18,7 +18,7 @@ composer run dev
 ```
 
 ## Routes list
-- `/`, home page <br>
+- `/` home page <br>
 - `/agent/{tema?}` agent page <br>
 - `/mahasiswa/{nrp 10 digit}` student profile page <br>
 - `/hitung-ipk/{ip1?}/{ip2?}` ipk calculator <br>
