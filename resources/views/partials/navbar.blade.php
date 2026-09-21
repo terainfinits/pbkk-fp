@@ -30,6 +30,14 @@
                         IPK Calculator
                     </a>
                 </li>
+                <li>
+                    <a href="{{ route('ide.index') }}"
+                        class="relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition duration-200 {{ request()->routeIs('ide.*') ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-indigo-500/25' : 'bg-slate-900 text-slate-100 hover:bg-slate-800' }}">
+                        <i class="fa-solid fa-wand-magic-sparkles text-amber-300 text-xs"></i>
+                        <span>Agentic IDE</span>
+                        <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    </a>
+                </li>
             </ul>
         </nav>
 
