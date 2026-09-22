@@ -255,7 +255,7 @@
                         <span class="text-xs font-bold uppercase tracking-wider text-slate-200">Agentic AI Model</span>
                     </div>
                     <span id="model-badge" class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                        Gemini 2.5
+                        Gemini 3.6 Flash
                     </span>
                 </div>
 
@@ -411,10 +411,10 @@
             // Model definitions per provider
             const providerModels = {
                 gemini: [
-                    { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
-                    { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
-                    { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro' },
-                    { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash' }
+                    { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash' },
+                    { id: 'gemini-3.6-pro', name: 'Gemini 3.6 Pro' },
+                    { id: 'gemini-3.0-flash', name: 'Gemini 3.0 Flash' },
+                    { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' }
                 ],
                 claude: [
                     { id: 'claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet' },

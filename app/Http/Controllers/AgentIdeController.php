@@ -251,7 +251,7 @@ class AgentIdeController extends Controller
     public function promptAgent(Request $request)
     {
         $provider = $request->input('provider', 'gemini'); // gemini, claude, gpt, kimi, deepseek, ollama
-        $model = $request->input('model', 'gemini-2.5-flash');
+        $model = $request->input('model', 'gemini-3.6-flash');
         $prompt = $request->input('prompt', '');
         $apiKey = $request->input('apiKey', '');
         $targetDirectory = $request->input('targetDirectory', '');
@@ -286,19 +286,25 @@ class AgentIdeController extends Controller
             if (!empty($apiKey)) {
                 $response = $this->callLiveLLM($provider, $model, $apiKey, $systemContext, $prompt, $conversationHistory);
                 if ($response['success']) {
-                    return response()->json($this->formatAgenticResponse($response['text'], $provider, $model, $targetFile, $targetDirectory));
+                    return response()->json($this->formatAgenticResponse($response['text'], $provider, $model, $targetFile, $targetDirectory, $prompt));
+                } else {
+                    return response()->json([
+                        'success' => false,
+                        'error' => $response['error'] ?? 'Live API call failed'
+                    ], 400);
                 }
             }
 
-            // Fallback / Built-in Intelligent Agent Engine
+            // Fallback / Built-in Intelligent Agent Engine (only used when no API Key is provided)
             $generated = $this->generateIntelligentAgentResponse($prompt, $provider, $model, $targetFile, $targetDirectory, $currentCode);
             return response()->json($generated);
 
         } catch (\Throwable $e) {
             Log::error('Agent prompt error: ' . $e->getMessage());
-            // Fallback to smart local generator if live API fails
-            $generated = $this->generateIntelligentAgentResponse($prompt, $provider, $model, $targetFile, $targetDirectory, $currentCode, $e->getMessage());
-            return response()->json($generated);
+            return response()->json([
+                'success' => false,
+                'error' => 'Agent processing exception: ' . $e->getMessage()
+            ], 500);
         }
     }
 
@@ -309,7 +315,8 @@ class AgentIdeController extends Controller
     {
         switch (strtolower($provider)) {
             case 'gemini':
-                $url = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$apiKey}";
+                $effectiveModel = $model ?: 'gemini-3.6-flash';
+                $url = "https://generativelanguage.googleapis.com/v1beta/models/{$effectiveModel}:generateContent?key={$apiKey}";
                 $response = Http::timeout(60)->post($url, [
                     'contents' => [
                         [
@@ -323,9 +330,13 @@ class AgentIdeController extends Controller
                 if ($response->successful()) {
                     $data = $response->json();
                     $text = $data['candidates'][0]['content']['parts'][0]['text'] ?? '';
-                    return ['success' => true, 'text' => $text];
+                    if (!empty($text)) {
+                        return ['success' => true, 'text' => $text];
+                    }
+                    return ['success' => false, 'error' => 'Gemini API returned an empty text response.'];
                 }
-                break;
+                $err = $response->json()['error']['message'] ?? $response->body();
+                return ['success' => false, 'error' => "Gemini API Error ({$response->status()}): {$err}"];
 
             case 'claude':
                 $url = 'https://api.anthropic.com/v1/messages';
@@ -334,7 +345,7 @@ class AgentIdeController extends Controller
                     'anthropic-version' => '2023-06-01',
                     'content-type' => 'application/json',
                 ])->timeout(60)->post($url, [
-                    'model' => $model ?: 'claude-3-7-sonnet-20250219',
+                    'model' => $model ?: 'claude-3-5-sonnet-20241022',
                     'max_tokens' => 4096,
                     'system' => $systemContext,
                     'messages' => [
@@ -346,7 +357,8 @@ class AgentIdeController extends Controller
                     $text = $data['content'][0]['text'] ?? '';
                     return ['success' => true, 'text' => $text];
                 }
-                break;
+                $err = $response->json()['error']['message'] ?? $response->body();
+                return ['success' => false, 'error' => "Claude API Error ({$response->status()}): {$err}"];
 
             case 'kimi':
             case 'moonshot':
@@ -367,7 +379,8 @@ class AgentIdeController extends Controller
                     $text = $data['choices'][0]['message']['content'] ?? '';
                     return ['success' => true, 'text' => $text];
                 }
-                break;
+                $err = $response->json()['error']['message'] ?? $response->body();
+                return ['success' => false, 'error' => "Kimi API Error ({$response->status()}): {$err}"];
 
             case 'gpt':
             case 'openai':
@@ -389,7 +402,8 @@ class AgentIdeController extends Controller
                     $text = $data['choices'][0]['message']['content'] ?? '';
                     return ['success' => true, 'text' => $text];
                 }
-                break;
+                $err = $response->json()['error']['message'] ?? $response->body();
+                return ['success' => false, 'error' => ucfirst($provider) . " API Error ({$response->status()}): {$err}"];
 
             case 'ollama':
                 $url = 'http://localhost:11434/api/generate';
@@ -404,7 +418,7 @@ class AgentIdeController extends Controller
                     $text = $data['response'] ?? '';
                     return ['success' => true, 'text' => $text];
                 }
-                break;
+                return ['success' => false, 'error' => "Ollama Error ({$response->status()}): Is local Ollama running?"];
         }
 
         return ['success' => false, 'error' => 'Provider call failed'];
@@ -413,15 +427,20 @@ class AgentIdeController extends Controller
     /**
      * Format raw AI response into agentic steps, thought process, and file actions.
      */
-    private function formatAgenticResponse(string $rawText, string $provider, string $model, ?string $targetFile, ?string $targetDirectory): array
+    private function formatAgenticResponse(string $rawText, string $provider, string $model, ?string $targetFile, ?string $targetDirectory, string $prompt = ''): array
     {
         // Extract code blocks and target files
-        $fileAction = null;
         $code = '';
         $language = 'php';
-        $suggestedPath = $targetFile ?: ($targetDirectory ? $targetDirectory . '/GeneratedComponent.php' : 'app/Services/GeneratedService.php');
+        
+        // Derive target file path
+        $defaultFilename = 'GeneratedCode.php';
+        if (preg_match('/([a-zA-Z0-9_\-]+\.(php|vue|js|ts|css|html|json|md))/i', $prompt, $pm)) {
+            $defaultFilename = $pm[1];
+        }
+        $suggestedPath = $targetFile ?: ($targetDirectory ? rtrim($targetDirectory, '/\\') . '/' . $defaultFilename : 'app/Services/' . $defaultFilename);
 
-        // Check if pattern `### [FILE: path]` exists
+        // Check if pattern `### [FILE: path]` exists in LLM response
         if (preg_match('/###\s*\[FILE:\s*([^\]]+)\]/i', $rawText, $matchPath)) {
             $suggestedPath = trim($matchPath[1]);
         }
@@ -464,25 +483,33 @@ class AgentIdeController extends Controller
         $explanation = '';
 
         if (str_contains($cleanPrompt, 'controller') || str_contains($cleanPrompt, 'crud') || str_contains($cleanPrompt, 'user')) {
-            $targetPath = $targetFile ?: 'app/Http/Controllers/UserController.php';
+            $targetPath = $targetFile ?: ($targetDirectory ? rtrim($targetDirectory, '/\\') . '/UserController.php' : 'app/Http/Controllers/UserController.php');
             $language = 'php';
             $code = "<?php\n\nnamespace App\Http\Controllers;\n\nuse Illuminate\Http\Request;\nuse App\Models\User;\nuse Illuminate\Support\Facades\Hash;\nuse Illuminate\Validation\Rules;\n\nclass UserController extends Controller\n{\n    /**\n     * Display a listing of the resource.\n     */\n    public function index()\n    {\n        \$users = User::latest()->paginate(10);\n        return view('users.index', compact('users'));\n    }\n\n    /**\n     * Store a newly created resource in storage.\n     */\n    public function store(Request \$request)\n    {\n        \$validated = \$request->validate([\n            'name' => ['required', 'string', 'max:255'],\n            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:users'],\n            'password' => ['required', 'confirmed', Rules\Password::defaults()],\n        ]);\n\n        \$user = User::create([\n            'name' => \$validated['name'],\n            'email' => \$validated['email'],\n            'password' => Hash::make(\$validated['password']),\n        ]);\n\n        return response()->json([\n            'success' => true,\n            'message' => 'User created successfully',\n            'data' => \$user\n        ], 201);\n    }\n\n    /**\n     * Update the specified resource in storage.\n     */\n    public function update(Request \$request, \$id)\n    {\n        \$user = User::findOrFail(\$id);\n        \$validated = \$request->validate([\n            'name' => ['sometimes', 'string', 'max:255'],\n            'email' => ['sometimes', 'email', 'unique:users,email,' . \$user->id],\n        ]);\n\n        \$user->update(\$validated);\n\n        return response()->json([\n            'success' => true,\n            'message' => 'User updated successfully',\n            'data' => \$user\n        ]);\n    }\n\n    /**\n     * Remove the specified resource from storage.\n     */\n    public function destroy(\$id)\n    {\n        \$user = User::findOrFail(\$id);\n        \$user->delete();\n\n        return response()->json([\n            'success' => true,\n            'message' => 'User deleted successfully'\n        ]);\n    }\n}";
             $explanation = "Created a robust, modern Laravel RESTful Controller with validation, password hashing, and clean JSON/View responses.";
         } elseif (str_contains($cleanPrompt, 'vue') || str_contains($cleanPrompt, 'component') || str_contains($cleanPrompt, 'ui')) {
-            $targetPath = $targetFile ?: ($targetDirectory ? $targetDirectory . '/AgentDashboard.vue' : 'resources/js/pages/AgentDashboard.vue');
+            $targetPath = $targetFile ?: ($targetDirectory ? rtrim($targetDirectory, '/\\') . '/AgentDashboard.vue' : 'resources/js/pages/AgentDashboard.vue');
             $language = 'vue';
             $code = "<script setup lang=\"ts\">\nimport { ref, onMounted } from 'vue';\n\ninterface Metric {\n    label: string;\n    value: string | number;\n    change: string;\n    isPositive: boolean;\n}\n\nconst metrics = ref<Metric[]>([\n    { label: 'Total Tasks', value: '1,284', change: '+12.5%', isPositive: true },\n    { label: 'AI Accuracy', value: '99.4%', change: '+0.8%', isPositive: true },\n    { label: 'Active Agents', value: '8 Online', change: 'Stable', isPositive: true },\n    { label: 'Avg Latency', value: '240ms', change: '-18ms', isPositive: true },\n]);\n\nconst activeTab = ref('overview');\n</script>\n\n<template>\n    <div class=\"min-h-screen bg-slate-950 text-slate-100 p-8\">\n        <header class=\"flex justify-between items-center mb-8 border-b border-slate-800 pb-6\">\n            <div>\n                <h1 class=\"text-3xl font-bold bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent\">\n                    Autonomous Agentic Dashboard\n                </h1>\n                <p class=\"text-sm text-slate-400 mt-1\">Real-time multi-agent orchestration console</p>\n            </div>\n            <button class=\"px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm font-medium shadow-lg shadow-indigo-500/20 transition\">\n                Deploy New Agent\n            </button>\n        </header>\n\n        <!-- Metrics Grid -->\n        <div class=\"grid grid-cols-1 md:grid-cols-4 gap-6 mb-8\">\n            <div v-for=\"(metric, idx) in metrics\" :key=\"idx\" class=\"p-6 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition\">\n                <p class=\"text-xs uppercase tracking-wider text-slate-400 font-semibold mb-2\">{{ metric.label }}</p>\n                <div class=\"flex items-baseline justify-between\">\n                    <h3 class=\"text-2xl font-bold text-white\">{{ metric.value }}</h3>\n                    <span class=\"text-xs px-2 py-0.5 rounded font-medium bg-emerald-500/10 text-emerald-400\">{{ metric.change }}</span>\n                </div>\n            </div>\n        </div>\n    </div>\n</template>";
             $explanation = "Generated a high-performance Vue 3 TypeScript Component with Tailwind CSS, reactive telemetry state, and glassmorphism styling.";
         } elseif (str_contains($cleanPrompt, 'test') || str_contains($cleanPrompt, 'pest') || str_contains($cleanPrompt, 'phpunit')) {
-            $targetPath = $targetFile ?: 'tests/Feature/AgentIdeTest.php';
+            $targetPath = $targetFile ?: ($targetDirectory ? rtrim($targetDirectory, '/\\') . '/AgentIdeTest.php' : 'tests/Feature/AgentIdeTest.php');
             $language = 'php';
-            $code = "<?php\n\nuse App\Http\Controllers\AgentIdeController;\n\ntest('ide page loads successfully', function () {\n    \$response = \$this->get(route('ide.index'));\n    \$response->assertStatus(200);\n    \$response->assertSee('Agentic AI IDE');\n});\n\ntest('file tree api returns project structure', function () {\n    \$response = \$this->getJson(route('ide.api.tree'));\n    \$response->assertStatus(200)\n        ->assertJsonStructure(['success', 'root', 'tree']);\n});\n\ntest('agent prompt returns structured reasoning and code', function () {\n    \$response = \$this->postJson(route('ide.api.agent.prompt'), [\n        'prompt' => 'Create a user controller',\n        'provider' => 'gemini',\n        'model' => 'gemini-2.5-flash'\n    ]);\n    \$response->assertStatus(200)\n        ->assertJsonStructure(['success', 'steps', 'code', 'targetPath']);\n});";
+            $code = "<?php\n\nuse App\Http\Controllers\AgentIdeController;\n\ntest('ide page loads successfully', function () {\n    \$response = \$this->get(route('ide.index'));\n    \$response->assertStatus(200);\n    \$response->assertSee('Agentic AI IDE');\n});\n\ntest('file tree api returns project structure', function () {\n    \$response = \$this->getJson(route('ide.api.tree'));\n    \$response->assertStatus(200)\n        ->assertJsonStructure(['success', 'root', 'tree']);\n});\n\ntest('agent prompt returns structured reasoning and code', function () {\n    \$response = \$this->postJson(route('ide.api.agent.prompt'), [\n        'prompt' => 'Create a user controller',\n        'provider' => 'gemini',\n        'model' => 'gemini-2.0-flash'\n    ]);\n    \$response->assertStatus(200)\n        ->assertJsonStructure(['success', 'steps', 'code', 'targetPath']);\n});";
             $explanation = "Generated complete Pest test suite covering page loading, directory exploration, and Agentic AI prompt generation.";
         } else {
-            // General tailored code response
-            $targetPath = $targetFile ?: ($targetDirectory ? $targetDirectory . '/AgentHelper.php' : 'app/Services/AgentService.php');
+            // Target folder specific filename derivation
+            $folderBasename = $targetDirectory ? basename(str_replace('\\', '/', $targetDirectory)) : '';
+            $className = $folderBasename ? ucfirst(str_replace(['-', '_'], '', $folderBasename)) . 'Helper' : 'AgentService';
+            $filename = $className . '.php';
+
+            if (preg_match('/([a-zA-Z0-9_\-]+\.(php|vue|js|ts|css|html|json|md))/i', $prompt, $pm)) {
+                $filename = $pm[1];
+            }
+
+            $targetPath = $targetFile ?: ($targetDirectory ? rtrim($targetDirectory, '/\\') . '/' . $filename : 'app/Services/' . $filename);
             $language = 'php';
-            $code = "<?php\n\nnamespace App\Services;\n\nclass AgentService\n{\n    /**\n     * Execute autonomous agent workflow.\n     */\n    public function execute(string \$goal, array \$context = []): array\n    {\n        // Step 1: Context parsing & AST analysis\n        \$plan = \$this->synthesizePlan(\$goal, \$context);\n\n        // Step 2: Code synthesis & generation\n        \$artifacts = \$this->generateArtifacts(\$plan);\n\n        return [\n            'status' => 'completed',\n            'goal' => \$goal,\n            'plan' => \$plan,\n            'artifacts' => \$artifacts,\n            'timestamp' => now()->toIso8601String(),\n        ];\n    }\n\n    protected function synthesizePlan(string \$goal, array \$context): array\n    {\n        return [\n            'goal' => \$goal,\n            'steps' => ['Analyze requirements', 'Scan target directory', 'Generate patch', 'Verify diff'],\n        ];\n    }\n\n    protected function generateArtifacts(array \$plan): array\n    {\n        return [\n            'generated_files' => 1,\n            'status' => 'ready_to_apply'\n        ];\n    }\n}";
+            $code = "<?php\n\nnamespace App\Services;\n\nclass {$className}\n{\n    /**\n     * Execute autonomous agent workflow.\n     */\n    public function execute(string \$goal, array \$context = []): array\n    {\n        // Step 1: Context parsing & AST analysis\n        \$plan = \$this->synthesizePlan(\$goal, \$context);\n\n        // Step 2: Code synthesis & generation\n        \$artifacts = \$this->generateArtifacts(\$plan);\n\n        return [\n            'status' => 'completed',\n            'goal' => \$goal,\n            'plan' => \$plan,\n            'artifacts' => \$artifacts,\n            'timestamp' => now()->toIso8601String(),\n        ];\n    }\n\n    protected function synthesizePlan(string \$goal, array \$context): array\n    {\n        return [\n            'goal' => \$goal,\n            'steps' => ['Analyze requirements', 'Scan target directory', 'Generate patch', 'Verify diff'],\n        ];\n    }\n\n    protected function generateArtifacts(array \$plan): array\n    {\n        return [\n            'generated_files' => 1,\n            'status' => 'ready_to_apply'\n        ];\n    }\n}";
             $explanation = "Generated an autonomous service class adhering to SOLID principles and clean architecture.";
         }
 
