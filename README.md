@@ -9,11 +9,25 @@
 ```
 git clone git@github.com:theRadn/PBKK-Tugas-2.git
 cd PBKK-Tugas-2
+```
+
+Setelah di folder kerja jalankan command ini
+```
 composer install
+```
+```
 npm install
+```
+```
 cp .env.example .env
-php key:generate
+```
+```
+php artisan key:generate
+```
+```
 php artisan migrate
+```
+```
 composer run dev
 ```
 
