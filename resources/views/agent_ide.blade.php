@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Agentic AI IDE | Antigravity Engine</title>
+    <title>Agentic AI IDE | Magentic Engine</title>
     
     <!-- Google Fonts & Font Awesome -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -21,8 +21,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-php.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js"></script>
 
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @vite(['resources/css/app.css', 'resources/js/app.ts'])
 
     <style>
         body {
@@ -76,8 +77,8 @@
                 </div>
                 <div>
                     <div class="flex items-center gap-2">
-                        <span class="font-bold text-sm tracking-tight text-white">Antigravity</span>
-                        <span class="text-[10px] uppercase font-bold tracking-widest px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">IDE v2.0</span>
+                        <span class="font-bold text-sm tracking-tight text-white">MAGENTIC</span>
+                        <span class="text-[10px] uppercase font-bold tracking-widest px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">IDE</span>
                     </div>
                     <p class="text-[10px] text-slate-400 font-mono">Agentic AI Code Studio</p>
                 </div>
@@ -89,7 +90,7 @@
             <div class="flex items-center gap-2 text-xs bg-slate-900/90 border border-slate-800 px-2.5 py-1 rounded-md text-slate-300">
                 <i class="fa-regular fa-folder-open text-amber-400"></i>
                 <span class="text-slate-400 font-normal">Workspace:</span>
-                <span id="workspace-root-name" class="font-semibold text-slate-200">PBKK-Tugas-2</span>
+                <span id="workspace-root-name" class="font-semibold text-slate-200">PBKK-FP</span>
             </div>
 
             <!-- Target Write Directory -->
@@ -98,10 +99,24 @@
                 <span class="text-indigo-400/80">Target Dir:</span>
                 <span id="target-dir-badge" class="font-mono text-indigo-200">/ (Root)</span>
             </div>
+
+            <!-- Detected System Kernels Indicator -->
+            <div id="header-kernel-status" class="hidden md:flex items-center gap-2 text-xs bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-md text-slate-300">
+                <i class="fa-solid fa-microchip text-emerald-400 animate-pulse"></i>
+                <span class="text-slate-400 font-normal">Kernels:</span>
+                <span id="header-kernel-list" class="font-mono text-[11px] text-emerald-300">Detecting...</span>
+            </div>
         </div>
 
         <!-- Right Action Controls -->
         <div class="flex items-center space-x-3">
+            <!-- Run Code Button -->
+            <button id="btn-header-run" title="Run current file in kernel (F5)" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-md shadow-md shadow-emerald-600/20 flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-play"></i>
+                <span>Run Code</span>
+                <span class="text-[10px] text-emerald-200 font-mono">F5</span>
+            </button>
+
             <!-- Save Button -->
             <button id="btn-save-file" title="Save current file (Ctrl+S)" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-md border border-slate-700 flex items-center gap-1.5 transition">
                 <i class="fa-regular fa-floppy-disk text-slate-400"></i>
@@ -168,11 +183,11 @@
 
             <!-- File Explorer Quick Help Footer -->
             <div class="p-2.5 border-t border-slate-800 bg-[#090d16] text-[10px] text-slate-500">
-                <span class="text-slate-400 font-medium">Tip:</span> Right click or select folder to set AI target write directory.
+                <span class="text-slate-400 font-medium">Tip:</span> Select folder to target AI file generation.
             </div>
         </aside>
 
-        <!-- PANE 2: TABBED CODE EDITOR -->
+        <!-- PANE 2: TABBED CODE EDITOR & TERMINAL -->
         <main class="flex-1 flex flex-col bg-[#0b0f19] overflow-hidden">
             <!-- Tabs Bar -->
             <div id="tabs-container" class="h-10 bg-[#0e1424] border-b border-slate-800 flex items-center px-1 overflow-x-auto shrink-0 space-x-1">
@@ -187,43 +202,81 @@
                     <span id="unsaved-indicator" class="hidden w-2 h-2 rounded-full bg-amber-400" title="Unsaved changes"></span>
                 </div>
                 <div class="flex items-center gap-3 text-[11px]">
+                    <span id="active-kernel-badge" class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono text-[10px] flex items-center gap-1">
+                        <i class="fa-solid fa-bolt text-[9px]"></i> <span id="kernel-badge-text">Python / PHP / Node</span>
+                    </span>
                     <span id="file-language-badge" class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 uppercase font-mono text-[10px]">TEXT</span>
                     <span id="editor-cursor-pos" class="font-mono text-slate-500">Ln 1, Col 1</span>
+                    <button id="btn-editor-run" class="px-2.5 py-0.5 rounded bg-emerald-600/30 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/40 font-medium transition flex items-center gap-1 text-[11px]">
+                        <i class="fa-solid fa-play text-[10px]"></i> Run Code
+                    </button>
                     <button id="btn-toggle-diff" class="hidden px-2 py-0.5 rounded bg-purple-600/30 text-purple-300 border border-purple-500/40 hover:bg-purple-600/40 transition">
                         <i class="fa-solid fa-code-compare mr-1"></i> Diff View
                     </button>
                 </div>
             </div>
 
-            <!-- Editor Work Area -->
-            <div class="flex-1 relative overflow-hidden flex bg-[#0c101c]">
-                <!-- Line Numbers -->
-                <div id="line-numbers" class="w-12 py-3 bg-[#0a0e1a] text-right pr-3 text-slate-600 font-mono text-xs select-none border-r border-slate-800/60 overflow-hidden leading-6">
-                    1
+            <!-- Editor Work Area & Terminal Console Split -->
+            <div class="flex-1 relative overflow-hidden flex flex-col bg-[#0c101c]">
+                <div class="flex-1 relative overflow-hidden flex">
+                    <!-- Line Numbers -->
+                    <div id="line-numbers" class="w-12 py-3 bg-[#0a0e1a] text-right pr-3 text-slate-600 font-mono text-xs select-none border-r border-slate-800/60 overflow-hidden leading-6">
+                        1
+                    </div>
+
+                    <!-- Textarea Code Input & Highlight Layer -->
+                    <div class="flex-1 relative h-full overflow-hidden">
+                        <textarea id="code-editor-input" spellcheck="false" class="editor-textarea code-font w-full h-full p-3 bg-transparent text-slate-200 text-xs leading-6 outline-none border-none overflow-auto font-mono z-10 relative" placeholder="// Select a file from the explorer or ask the AI to generate code... (Python, PHP, Node supported)"></textarea>
+                    </div>
+
+                    <!-- Diff Side-by-Side Drawer (Hidden by default) -->
+                    <div id="diff-drawer" class="hidden absolute inset-0 bg-[#090d16] z-20 flex flex-col border-l border-slate-700">
+                        <div class="h-9 bg-slate-900 px-4 flex items-center justify-between border-b border-slate-800">
+                            <span class="text-xs font-semibold text-purple-300 flex items-center gap-2">
+                                <i class="fa-solid fa-code-compare"></i> Proposed AI Diff Patch
+                            </span>
+                            <div class="flex items-center gap-2">
+                                <button id="btn-apply-diff" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-semibold shadow transition">
+                                    <i class="fa-solid fa-check mr-1"></i> Apply Changes to File
+                                </button>
+                                <button id="btn-close-diff" class="px-2 py-1 text-slate-400 hover:text-white text-xs">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="flex-1 p-3 overflow-auto font-mono text-xs bg-slate-950/80">
+                            <pre id="diff-code-view" class="text-slate-300"></pre>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Textarea Code Input & Highlight Layer -->
-                <div class="flex-1 relative h-full overflow-hidden">
-                    <textarea id="code-editor-input" spellcheck="false" class="editor-textarea code-font w-full h-full p-3 bg-transparent text-slate-200 text-xs leading-6 outline-none border-none overflow-auto font-mono z-10 relative" placeholder="// Select a file from the explorer or ask the AI to generate code..."></textarea>
-                </div>
-
-                <!-- Diff Side-by-Side Drawer (Hidden by default) -->
-                <div id="diff-drawer" class="hidden absolute inset-0 bg-[#090d16] z-20 flex flex-col border-l border-slate-700">
-                    <div class="h-9 bg-slate-900 px-4 flex items-center justify-between border-b border-slate-800">
-                        <span class="text-xs font-semibold text-purple-300 flex items-center gap-2">
-                            <i class="fa-solid fa-code-compare"></i> Proposed AI Diff Patch
-                        </span>
-                        <div class="flex items-center gap-2">
-                            <button id="btn-apply-diff" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-semibold shadow transition">
-                                <i class="fa-solid fa-check mr-1"></i> Apply Changes to File
+                <!-- BOTTOM TERMINAL CONSOLE DRAWER -->
+                <div id="terminal-drawer" class="h-44 bg-[#080c14] border-t border-slate-800 flex flex-col shrink-0 transition-all duration-200">
+                    <div class="h-8 bg-[#0d1322] px-3 flex items-center justify-between border-b border-slate-800 text-xs select-none">
+                        <div class="flex items-center gap-3">
+                            <div class="flex items-center gap-1.5 text-slate-200 font-semibold">
+                                <i class="fa-solid fa-terminal text-emerald-400"></i>
+                                <span>Magentic Kernel Console</span>
+                            </div>
+                            <span id="terminal-kernel-badge" class="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-mono">
+                                System Kernel Ready
+                            </span>
+                            <span id="terminal-exec-time" class="text-[10px] text-slate-500 font-mono hidden">0ms</span>
+                        </div>
+                        <div class="flex items-center gap-2 text-[11px]">
+                            <button id="btn-clear-terminal" class="px-2 py-0.5 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition" title="Clear console">
+                                <i class="fa-solid fa-trash-can mr-1 text-[10px]"></i> Clear
                             </button>
-                            <button id="btn-close-diff" class="px-2 py-1 text-slate-400 hover:text-white text-xs">
-                                <i class="fa-solid fa-xmark"></i>
+                            <button id="btn-toggle-terminal" class="px-2 py-0.5 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition" title="Minimize/Restore terminal">
+                                <i id="terminal-toggle-icon" class="fa-solid fa-chevron-down text-[10px]"></i>
                             </button>
                         </div>
                     </div>
-                    <div class="flex-1 p-3 overflow-auto font-mono text-xs bg-slate-950/80">
-                        <pre id="diff-code-view" class="text-slate-300"></pre>
+                    <div id="terminal-output-body" class="flex-1 p-3 overflow-y-auto font-mono text-[11px] leading-5 text-slate-300 bg-[#060910] space-y-1 select-text">
+                        <div class="text-slate-500 flex items-center gap-2">
+                            <span class="text-emerald-400 font-bold">➜</span>
+                            <span>Magentic Kernel Console initialized. Click "Run Code" or execute snippets in Chatbot to run Python, PHP, or Node.js scripts.</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -245,14 +298,14 @@
             </div>
         </main>
 
-        <!-- PANE 3: AGENTIC AI ASSISTANT PANEL -->
+        <!-- PANE 3: AGENTIC AI ASSISTANT PANEL (CONVERSATIONAL CHATBOT) -->
         <aside class="w-96 bg-[#0e1424] border-l border-slate-800 flex flex-col shrink-0">
             <!-- Agent Header & Model Selector -->
             <div class="p-3 border-b border-slate-800 bg-[#0d1322] space-y-2.5">
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-2">
                         <div class="w-2.5 h-2.5 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 animate-pulse"></div>
-                        <span class="text-xs font-bold uppercase tracking-wider text-slate-200">Agentic AI Model</span>
+                        <span class="text-xs font-bold uppercase tracking-wider text-slate-200">Magentic Chatbot</span>
                     </div>
                     <span id="model-badge" class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
                         Gemini 3.6 Flash
@@ -264,12 +317,12 @@
                     <div>
                         <label class="block text-[10px] font-medium text-slate-400 mb-1">Provider</label>
                         <select id="select-provider" class="w-full bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-md px-2 py-1.5 outline-none focus:border-indigo-500 transition">
-                            <option value="gemini" selected>Google Gemini</option>
+                            <option value="gemini">Google Gemini</option>
                             <option value="claude">Anthropic Claude</option>
                             <option value="gpt">OpenAI (GPT)</option>
                             <option value="kimi">Moonshot Kimi</option>
                             <option value="deepseek">DeepSeek AI</option>
-                            <option value="ollama">Local Ollama</option>
+                            <option value="ollama_cloud" selected>Ollama Cloud</option>
                         </select>
                     </div>
                     <div>
@@ -281,18 +334,21 @@
                 </div>
             </div>
 
-            <!-- Agent Chat & Reasoning Stream Area -->
+            <!-- Conversational Chat Stream Area -->
             <div id="agent-chat-stream" class="flex-1 overflow-y-auto p-3 space-y-4 text-xs">
-                <!-- Welcome Agent Card -->
-                <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2.5">
-                    <div class="flex items-center gap-2 text-indigo-300 font-semibold text-xs">
-                        <i class="fa-solid fa-robot"></i>
-                        <span>Antigravity AI Agent</span>
+                <!-- Welcome Chatbot Card -->
+                <div class="p-3.5 rounded-xl bg-slate-900/90 border border-indigo-500/30 space-y-2.5">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2 text-indigo-300 font-semibold text-xs">
+                            <i class="fa-solid fa-robot text-indigo-400"></i>
+                            <span>Magentic AI Assistant</span>
+                        </div>
+                        <span class="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded font-mono">Kernel Ready</span>
                     </div>
-                    <p class="text-slate-400 text-[11px] leading-relaxed">
-                        I can autonomously write code, build entire controllers, generate Vue components, create files, and apply diffs to any selected folder.
+                    <p class="text-slate-300 text-[11px] leading-relaxed">
+                        Welcome to Magentic Chatbot! Ask me to write code in Python, PHP, or Node.js. I can run code directly in live system kernels and apply patches to your workspace.
                     </p>
-                    <div class="p-2 bg-slate-950/80 rounded border border-slate-800/80 text-[10px] text-slate-400 space-y-1 font-mono">
+                    <div class="p-2 bg-slate-950/90 rounded border border-slate-800 text-[10px] text-slate-400 space-y-1 font-mono">
                         <div>🎯 <span class="text-slate-300">Target Folder:</span> <span id="chat-target-folder" class="text-indigo-400">/</span></div>
                         <div>📄 <span class="text-slate-300">Active File:</span> <span id="chat-active-file" class="text-amber-400">None</span></div>
                     </div>
@@ -300,40 +356,40 @@
 
                 <!-- Template Prompt Pills -->
                 <div class="space-y-1.5">
-                    <span class="text-[10px] uppercase font-semibold tracking-wider text-slate-500">Quick Actions</span>
+                    <span class="text-[10px] uppercase font-semibold tracking-wider text-slate-500">Quick Prompt Templates</span>
                     <div class="flex flex-wrap gap-1.5">
+                        <button class="prompt-pill text-[11px] px-2.5 py-1 rounded bg-slate-900 hover:bg-amber-950/40 text-slate-300 hover:text-amber-200 border border-slate-800 hover:border-amber-500/40 transition" data-prompt="Write a Python script for Fibonacci calculation and prime numbers up to 50">
+                            🐍 Python Script
+                        </button>
                         <button class="prompt-pill text-[11px] px-2.5 py-1 rounded bg-slate-900 hover:bg-indigo-900/40 text-slate-300 hover:text-indigo-200 border border-slate-800 hover:border-indigo-500/40 transition" data-prompt="Create a Laravel UserController with full CRUD and validation rules">
-                            ⚡ CRUD Controller
+                            ⚡ Laravel CRUD
                         </button>
-                        <button class="prompt-pill text-[11px] px-2.5 py-1 rounded bg-slate-900 hover:bg-indigo-900/40 text-slate-300 hover:text-indigo-200 border border-slate-800 hover:border-indigo-500/40 transition" data-prompt="Create a modern Vue 3 component for Agent Dashboard with Tailwind and reactive metrics">
-                            ⚡ Vue 3 Component
+                        <button class="prompt-pill text-[11px] px-2.5 py-1 rounded bg-slate-900 hover:bg-emerald-950/40 text-slate-300 hover:text-emerald-200 border border-slate-800 hover:border-emerald-500/40 transition" data-prompt="Create a modern Vue 3 component for Agent Dashboard with Tailwind and reactive metrics">
+                            🟢 Vue 3 Component
                         </button>
-                        <button class="prompt-pill text-[11px] px-2.5 py-1 rounded bg-slate-900 hover:bg-indigo-900/40 text-slate-300 hover:text-indigo-200 border border-slate-800 hover:border-indigo-500/40 transition" data-prompt="Generate a complete Pest test file for testing the AgentIdeController endpoints">
-                            ⚡ Pest Tests
-                        </button>
-                        <button class="prompt-pill text-[11px] px-2.5 py-1 rounded bg-slate-900 hover:bg-indigo-900/40 text-slate-300 hover:text-indigo-200 border border-slate-800 hover:border-indigo-500/40 transition" data-prompt="Refactor this active file to follow clean architecture and add error handling">
-                            ⚡ Refactor & Fix
+                        <button class="prompt-pill text-[11px] px-2.5 py-1 rounded bg-slate-900 hover:bg-purple-950/40 text-slate-300 hover:text-purple-200 border border-slate-800 hover:border-purple-500/40 transition" data-prompt="Generate a complete Pest test file for testing the AgentIdeController endpoints">
+                            🧪 Pest Tests
                         </button>
                     </div>
                 </div>
 
-                <!-- Live Stream Steps Container -->
-                <div id="agent-timeline" class="space-y-3">
-                    <!-- Dynamic reasoning steps injected here -->
+                <!-- Chat Messages Stream Container -->
+                <div id="agent-timeline" class="space-y-4">
+                    <!-- Conversational chat messages injected here -->
                 </div>
             </div>
 
             <!-- Agent Prompt Input Box -->
             <div class="p-3 border-t border-slate-800 bg-[#0b0f1a] space-y-2">
                 <div class="relative">
-                    <textarea id="agent-prompt-input" rows="3" class="w-full bg-slate-900 border border-slate-700/80 rounded-lg p-2.5 text-xs text-slate-200 placeholder-slate-500 outline-none focus:border-indigo-500 transition resize-none" placeholder="Ask AI to write code in selected directory... (e.g. 'Create a ProductService.php')"></textarea>
+                    <textarea id="agent-prompt-input" rows="3" class="w-full bg-slate-900 border border-slate-700/80 rounded-lg p-2.5 text-xs text-slate-200 placeholder-slate-500 outline-none focus:border-indigo-500 transition resize-none" placeholder="Chat with AI... (e.g. 'Write a Python algorithm script' or 'Create a UserController')"></textarea>
                 </div>
 
                 <div class="flex items-center justify-between">
-                    <span class="text-[10px] text-slate-500 font-mono">Press Shift+Enter for new line</span>
+                    <span class="text-[10px] text-slate-500 font-mono">Shift+Enter for new line</span>
                     <button id="btn-submit-prompt" class="px-4 py-2 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-semibold text-xs rounded-lg shadow-lg shadow-indigo-500/20 flex items-center gap-1.5 transition">
                         <i class="fa-solid fa-paper-plane text-xs"></i>
-                        <span>Generate & Write</span>
+                        <span>Send Message</span>
                     </button>
                 </div>
             </div>
@@ -378,6 +434,10 @@
                     <label class="block font-medium text-slate-300 mb-1">DeepSeek API Key</label>
                     <input type="password" id="key-deepseek" placeholder="sk-..." class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-slate-200 outline-none focus:border-indigo-500">
                 </div>
+                <div>
+                    <label class="block font-medium text-slate-300 mb-1">Ollama Cloud API Key</label>
+                    <input type="password" id="key-ollama-cloud" placeholder="fe..." class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-slate-200 outline-none focus:border-indigo-500">
+                </div>
             </div>
 
             <div class="flex justify-end gap-2 pt-2 border-t border-slate-800">
@@ -408,13 +468,10 @@
         document.addEventListener('DOMContentLoaded', () => {
             const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
-            // Model definitions per provider
-            const providerModels = {
+            const providerModels = { // model yang muncul disamping provider, lokasi kanan atas
                 gemini: [
                     { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash' },
-                    { id: 'gemini-3.6-pro', name: 'Gemini 3.6 Pro' },
-                    { id: 'gemini-3.0-flash', name: 'Gemini 3.0 Flash' },
-                    { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' }
+                    { id: 'gemini-3.1-pro', name: 'Gemini 3.1 Pro' },
                 ],
                 claude: [
                     { id: 'claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet' },
@@ -422,9 +479,7 @@
                     { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku' }
                 ],
                 gpt: [
-                    { id: 'gpt-4o', name: 'GPT-4o' },
-                    { id: 'gpt-4o-mini', name: 'GPT-4o-mini' },
-                    { id: 'o3-mini', name: 'o3-mini' }
+                    { id: 'gpt-oss 120b', name: 'gpt-oss 120b' },
                 ],
                 kimi: [
                     { id: 'moonshot-v1-8k', name: 'Kimi (Moonshot v1 8k)' },
@@ -435,10 +490,19 @@
                     { id: 'deepseek-chat', name: 'DeepSeek V3' },
                     { id: 'deepseek-reasoner', name: 'DeepSeek R1' }
                 ],
-                ollama: [
-                    { id: 'llama3', name: 'Llama 3' },
-                    { id: 'qwen2.5-coder', name: 'Qwen 2.5 Coder' },
-                    { id: 'deepseek-coder', name: 'DeepSeek Coder' }
+                ollama_cloud: [
+                    { id: 'gpt-oss:120b', name: 'gpt-oss:120b' },
+                    { id: 'gemma4:31b', name: 'gemma4:31b' },
+                    { id: 'llama3.3', name: 'llama3.3' },
+                    { id: 'qwen2.5-coder', name: 'qwen2.5-coder' },
+                    { id: 'deepseek-r1', name: 'deepseek-r1' }
+                ],
+                ollama_local: [
+                    { id: 'kimi-k2.6', name: 'kimi-k2.6' },
+                    { id: 'gemma4:31b', name: 'gemma4:31b' },
+                    { id: 'llama3.3', name: 'llama3.3' },
+                    { id: 'qwen2.5-coder', name: 'qwen2.5-coder' },
+                    { id: 'deepseek-r1', name: 'deepseek-r1' }
                 ]
             };
 
@@ -505,18 +569,23 @@
 
             updateModelOptions();
 
-            // Load API Keys from LocalStorage
-            function loadSavedKeys() {
+            function loadSavedKeys() { // Load API Keys from LocalStorage
                 document.getElementById('key-gemini').value = localStorage.getItem('agent_key_gemini') || '';
                 document.getElementById('key-claude').value = localStorage.getItem('agent_key_claude') || '';
                 document.getElementById('key-gpt').value = localStorage.getItem('agent_key_gpt') || '';
                 document.getElementById('key-kimi').value = localStorage.getItem('agent_key_kimi') || '';
                 document.getElementById('key-deepseek').value = localStorage.getItem('agent_key_deepseek') || '';
+                const savedOllama = localStorage.getItem('agent_key_ollama_cloud') || localStorage.getItem('agent_key_ollama') || '';
+                document.getElementById('key-ollama-cloud').value = savedOllama;
             }
 
             function getActiveApiKey() {
                 const provider = selectProvider.value;
-                return localStorage.getItem('agent_key_' + provider) || '';
+                let key = localStorage.getItem('agent_key_' + provider) || '';
+                if (!key && (provider === 'ollama_cloud' || provider === 'ollama')) {
+                    key = localStorage.getItem('agent_key_ollama_cloud') || localStorage.getItem('agent_key_ollama') || '';
+                }
+                return key;
             }
 
             // Settings Modal Logic
@@ -534,6 +603,9 @@
                 localStorage.setItem('agent_key_gpt', document.getElementById('key-gpt').value.trim());
                 localStorage.setItem('agent_key_kimi', document.getElementById('key-kimi').value.trim());
                 localStorage.setItem('agent_key_deepseek', document.getElementById('key-deepseek').value.trim());
+                const ollamaKey = document.getElementById('key-ollama-cloud').value.trim();
+                localStorage.setItem('agent_key_ollama_cloud', ollamaKey);
+                localStorage.setItem('agent_key_ollama', ollamaKey);
                 settingsModal.classList.add('hidden');
                 showNotification('API Keys saved successfully!');
             });
@@ -827,13 +899,194 @@
 
             btnSaveFile.addEventListener('click', saveCurrentFile);
 
-            // Ctrl+S shortcut
+            // Shortcuts: Save (Ctrl+S), Run (F5 or Ctrl+Enter)
             window.addEventListener('keydown', (e) => {
                 if ((e.ctrlKey || e.metaKey) && e.key === 's') {
                     e.preventDefault();
                     saveCurrentFile();
+                } else if (e.key === 'F5' || ((e.ctrlKey || e.metaKey) && e.key === 'Enter')) {
+                    e.preventDefault();
+                    runActiveCode();
                 }
             });
+
+            // Terminal Console Drawer Logic
+            const terminalDrawer = document.getElementById('terminal-drawer');
+            const terminalOutputBody = document.getElementById('terminal-output-body');
+            const btnToggleTerminal = document.getElementById('btn-toggle-terminal');
+            const btnClearTerminal = document.getElementById('btn-clear-terminal');
+            const terminalToggleIcon = document.getElementById('terminal-toggle-icon');
+            const terminalKernelBadge = document.getElementById('terminal-kernel-badge');
+            const terminalExecTime = document.getElementById('terminal-exec-time');
+
+            let isTerminalMinimized = false;
+            btnToggleTerminal.addEventListener('click', () => {
+                isTerminalMinimized = !isTerminalMinimized;
+                if (isTerminalMinimized) {
+                    terminalDrawer.style.height = '32px';
+                    terminalToggleIcon.className = 'fa-solid fa-chevron-up text-[10px]';
+                } else {
+                    terminalDrawer.style.height = '176px';
+                    terminalToggleIcon.className = 'fa-solid fa-chevron-down text-[10px]';
+                }
+            });
+
+            btnClearTerminal.addEventListener('click', () => {
+                terminalOutputBody.innerHTML = `
+                    <div class="text-slate-500 flex items-center gap-2">
+                        <span class="text-emerald-400 font-bold">➜</span>
+                        <span>Console cleared. Ready for kernel execution.</span>
+                    </div>
+                `;
+            });
+
+            function openTerminalDrawer() {
+                if (isTerminalMinimized) {
+                    isTerminalMinimized = false;
+                    terminalDrawer.style.height = '176px';
+                    terminalToggleIcon.className = 'fa-solid fa-chevron-down text-[10px]';
+                }
+            }
+
+            // Kernel Auto-Detection
+            async function fetchKernels() {
+                try {
+                    const res = await fetch('{{ route("ide.api.kernels") }}');
+                    const data = await res.json();
+                    if (data.success && data.kernels) {
+                        const k = data.kernels;
+                        const available = [];
+                        if (k.python && k.python.available) available.push(`🐍 ${k.python.version.split(' ')[0]} ${k.python.version.split(' ')[1] || ''}`);
+                        if (k.php && k.php.available) available.push(`🐘 ${k.php.version.split(' ')[0]} ${k.php.version.split(' ')[1] || ''}`);
+                        if (k.node && k.node.available) available.push(`🟢 ${k.node.version.split(' ')[0]} ${k.node.version.split(' ')[1] || ''}`);
+
+                        const headerText = available.join(' | ') || 'PHP Engine Active';
+                        document.getElementById('header-kernel-list').textContent = headerText;
+                        document.getElementById('kernel-badge-text').textContent = available.length > 0 ? available[0] : 'PHP / Python';
+                        terminalKernelBadge.textContent = available.join(' • ') || 'Kernel Engine Ready';
+                    }
+                } catch (err) {
+                    document.getElementById('header-kernel-list').textContent = 'PHP / Python Engine';
+                }
+            }
+
+            // Run Code in Kernel API handler
+            async function runCodeInKernel(codeContent, language, filePath = '', targetConsole = null) {
+                openTerminalDrawer();
+
+                const execLang = language || (filePath ? filePath.split('.').pop() : 'php');
+                
+                // Print command prompt entry to console
+                const promptLine = document.createElement('div');
+                promptLine.className = 'text-indigo-300 font-bold flex items-center gap-2 mt-2 pt-2 border-t border-slate-800/80';
+                promptLine.innerHTML = `<span class="text-emerald-400">➜</span> <span>Executing ${escapeHtml(execLang.toUpperCase())} kernel${filePath ? ' (' + escapeHtml(filePath) + ')' : ''}...</span>`;
+                terminalOutputBody.appendChild(promptLine);
+                terminalOutputBody.scrollTop = terminalOutputBody.scrollHeight;
+
+                if (targetConsole) {
+                    targetConsole.innerHTML = `<div class="text-indigo-400 animate-pulse"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Running snippet in ${escapeHtml(execLang)} kernel...</div>`;
+                }
+
+                try {
+                    const res = await fetch('{{ route("ide.api.code.run") }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken
+                        },
+                        body: JSON.stringify({
+                            code: codeContent,
+                            language: execLang,
+                            path: filePath
+                        })
+                    });
+
+                    const data = await res.json();
+                    if (data.success) {
+                        terminalKernelBadge.textContent = `${data.kernel} (${data.executable})`;
+                        terminalExecTime.textContent = `${data.executionTimeMs}ms`;
+                        terminalExecTime.classList.remove('hidden');
+
+                        let outputHtml = '';
+                        let chatOutputHtml = '';
+
+                        if (data.stdout && data.stdout.trim()) {
+                            outputHtml += `<pre class="text-emerald-300 whitespace-pre-wrap leading-5">${escapeHtml(data.stdout)}</pre>`;
+                            chatOutputHtml += `<pre class="text-emerald-300 text-[10px] font-mono whitespace-pre-wrap">${escapeHtml(data.stdout)}</pre>`;
+                        }
+
+                        if (data.stderr && data.stderr.trim()) {
+                            outputHtml += `<pre class="text-red-400 whitespace-pre-wrap leading-5">${escapeHtml(data.stderr)}</pre>`;
+                            chatOutputHtml += `<pre class="text-red-400 text-[10px] font-mono whitespace-pre-wrap">${escapeHtml(data.stderr)}</pre>`;
+                        }
+
+                        if (!data.stdout && !data.stderr) {
+                            outputHtml += `<div class="text-slate-500 italic">[Process exited with code ${data.exitCode} (No output)]</div>`;
+                            chatOutputHtml += `<div class="text-slate-500 italic text-[10px]">[Done in ${data.executionTimeMs}ms]</div>`;
+                        }
+
+                        const statusBadge = `<div class="text-[10px] text-slate-400 flex items-center gap-3 mt-1">
+                            <span class="${data.exitCode === 0 ? 'text-emerald-400 font-semibold' : 'text-red-400 font-semibold'}">Exit Code: ${data.exitCode}</span>
+                            <span>Time: ${data.executionTimeMs}ms</span>
+                        </div>`;
+
+                        const outBlock = document.createElement('div');
+                        outBlock.className = 'pl-3 border-l-2 border-slate-700 my-1 space-y-1';
+                        outBlock.innerHTML = outputHtml + statusBadge;
+                        terminalOutputBody.appendChild(outBlock);
+                        terminalOutputBody.scrollTop = terminalOutputBody.scrollHeight;
+
+                        if (targetConsole) {
+                            targetConsole.innerHTML = `
+                                <div class="p-2.5 rounded bg-slate-950 border border-emerald-500/30 font-mono text-[11px] space-y-1">
+                                    <div class="flex items-center justify-between text-[10px] text-emerald-400 font-semibold border-b border-slate-800 pb-1 mb-1">
+                                        <span><i class="fa-solid fa-terminal mr-1"></i> Kernel Output (${escapeHtml(data.kernel)})</span>
+                                        <span>${data.executionTimeMs}ms</span>
+                                    </div>
+                                    ${chatOutputHtml || '<div class="text-slate-500">[Completed without output]</div>'}
+                                </div>
+                            `;
+                        }
+
+                        showNotification(`Code executed in ${data.kernel} (${data.executionTimeMs}ms)`);
+                    } else {
+                        const errDiv = document.createElement('div');
+                        errDiv.className = 'text-red-400 pl-3 border-l-2 border-red-500 my-1';
+                        errDiv.textContent = `Error: ${data.error || 'Execution failed'}`;
+                        terminalOutputBody.appendChild(errDiv);
+
+                        if (targetConsole) {
+                            targetConsole.innerHTML = `<div class="text-red-400 text-[10px] font-mono">Execution failed: ${escapeHtml(data.error)}</div>`;
+                        }
+                    }
+                } catch (err) {
+                    const errDiv = document.createElement('div');
+                    errDiv.className = 'text-red-400 pl-3 border-l-2 border-red-500 my-1';
+                    errDiv.textContent = 'Execution network exception.';
+                    terminalOutputBody.appendChild(errDiv);
+                    if (targetConsole) {
+                        targetConsole.innerHTML = `<div class="text-red-400 text-[10px]">Execution exception.</div>`;
+                    }
+                }
+            }
+
+            // Run active editor code button handler
+            async function runActiveCode() {
+                const activeTab = state.openTabs.find(t => t.path === state.activeTabPath);
+                const code = codeEditorInput.value;
+                const path = activeTab ? activeTab.path : '';
+                const language = activeTab ? activeTab.extension : 'php';
+
+                if (!code || !code.trim()) {
+                    showNotification('Editor is empty. Write code to execute.', true);
+                    return;
+                }
+
+                await runCodeInKernel(code, language, path);
+            }
+
+            document.getElementById('btn-header-run').addEventListener('click', runActiveCode);
+            document.getElementById('btn-editor-run').addEventListener('click', runActiveCode);
 
             // Modal: Create New File / Folder
             const createModal = document.getElementById('create-modal');
@@ -843,7 +1096,7 @@
             document.getElementById('btn-new-file').addEventListener('click', () => {
                 state.createModalType = 'file';
                 createModalTitle.textContent = 'Create New File in Workspace';
-                createModalInput.value = state.targetDirectory ? `${state.targetDirectory}/NewFile.php` : 'NewFile.php';
+                createModalInput.value = state.targetDirectory ? `${state.targetDirectory}/script.py` : 'script.py';
                 createModal.classList.remove('hidden');
                 createModalInput.focus();
             });
@@ -901,7 +1154,7 @@
                 });
             });
 
-            // Submit Agent Prompt
+            // Submit Agent Chatbot Prompt
             btnSubmitPrompt.addEventListener('click', executeAgentPrompt);
             agentPromptInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
@@ -910,6 +1163,7 @@
                 }
             });
 
+            // Full Conversational Chatbot Stream Execution
             async function executeAgentPrompt() {
                 const prompt = agentPromptInput.value.trim();
                 if (!prompt) return;
@@ -919,40 +1173,48 @@
                 const apiKey = getActiveApiKey();
 
                 btnSubmitPrompt.disabled = true;
-                btnSubmitPrompt.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Synthesizing...';
-                document.getElementById('agent-status-label').textContent = 'AI Agent Thinking...';
+                btnSubmitPrompt.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Thinking...';
+                document.getElementById('agent-status-label').textContent = 'AI Chatbot Synthesizing...';
 
-                // Add User Prompt Card to Stream
-                const userCard = document.createElement('div');
-                userCard.className = 'p-3 rounded-lg bg-indigo-950/40 border border-indigo-500/30 text-xs space-y-1';
-                userCard.innerHTML = `
-                    <div class="flex items-center justify-between text-indigo-300 font-semibold text-[11px]">
-                        <span class="flex items-center gap-1.5"><i class="fa-solid fa-user"></i> You</span>
-                        <span class="text-[10px] text-indigo-400/70 font-mono">${new Date().toLocaleTimeString()}</span>
-                    </div>
-                    <p class="text-slate-200">${escapeHtml(prompt)}</p>
-                `;
-                agentTimeline.appendChild(userCard);
-
-                // Add Agent Execution Card with Loading Steps
-                const agentCard = document.createElement('div');
-                agentCard.className = 'p-3.5 rounded-xl bg-slate-900 border border-purple-500/30 shadow-lg space-y-3';
-                agentCard.innerHTML = `
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-2">
-                            <i class="fa-solid fa-wand-magic-sparkles text-purple-400"></i>
-                            <span class="font-bold text-slate-100 text-xs">${provider.toUpperCase()} Agent</span>
+                // Append User Message Bubble
+                const userMsgDiv = document.createElement('div');
+                userMsgDiv.className = 'flex justify-end';
+                userMsgDiv.innerHTML = `
+                    <div class="max-w-[85%] p-3 rounded-2xl rounded-tr-none bg-indigo-600 text-white shadow-lg space-y-1">
+                        <div class="flex items-center justify-between text-[10px] text-indigo-200 border-b border-indigo-500/40 pb-1 mb-1 font-mono">
+                            <span class="font-bold"><i class="fa-solid fa-user mr-1"></i> You</span>
+                            <span>${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                         </div>
-                        <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-500/10 text-purple-300">${model}</span>
+                        <p class="text-xs leading-relaxed whitespace-pre-wrap">${escapeHtml(prompt)}</p>
                     </div>
-                    <div class="steps-box space-y-2 text-[11px]">
-                        <div class="flex items-center gap-2 text-slate-400">
+                `;
+                agentTimeline.appendChild(userMsgDiv);
+
+                // Append AI Chatbot Message Card Container (Loading State)
+                const botMsgDiv = document.createElement('div');
+                botMsgDiv.className = 'flex justify-start';
+                botMsgDiv.innerHTML = `
+                    <div class="max-w-[95%] w-full p-4 rounded-2xl rounded-tl-none bg-slate-900 border border-purple-500/30 shadow-xl space-y-3">
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                            <div class="flex items-center gap-2">
+                                <div class="w-6 h-6 rounded-md bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-white text-[11px] shadow">
+                                    <i class="fa-solid fa-robot"></i>
+                                </div>
+                                <span class="font-bold text-slate-100 text-xs">${provider.toUpperCase()} Assistant</span>
+                            </div>
+                            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-500/10 text-purple-300 border border-purple-500/20">${model}</span>
+                        </div>
+
+                        <!-- Loading indicator -->
+                        <div class="chat-loading flex items-center gap-2 text-slate-400 text-xs py-2">
                             <i class="fa-solid fa-circle-notch fa-spin text-indigo-400"></i>
-                            <span>Analyzing workspace & formulating reasoning...</span>
+                            <span>Analyzing prompt context & generating response...</span>
                         </div>
+
+                        <div class="chat-response-content hidden space-y-3 text-xs text-slate-200 leading-relaxed"></div>
                     </div>
                 `;
-                agentTimeline.appendChild(agentCard);
+                agentTimeline.appendChild(botMsgDiv);
                 agentTimeline.scrollTop = agentTimeline.scrollHeight;
 
                 try {
@@ -975,70 +1237,123 @@
                     });
 
                     const data = await res.json();
+                    const loadingEl = botMsgDiv.querySelector('.chat-loading');
+                    const contentEl = botMsgDiv.querySelector('.chat-response-content');
+
+                    if (loadingEl) loadingEl.remove();
+                    if (contentEl) contentEl.classList.remove('hidden');
+
                     if (data.success) {
                         state.lastGeneratedCode = data.code;
                         state.lastGeneratedTarget = data.targetPath;
 
-                        // Render Agent Reasoning Steps
+                        // 1. Collapsible Agent Reasoning Steps Accordion
                         let stepsHtml = '';
-                        (data.steps || []).forEach(step => {
-                            stepsHtml += `
-                                <div class="p-2 rounded bg-slate-950/60 border border-slate-800 flex items-start gap-2">
-                                    <i class="fa-solid fa-circle-check text-emerald-400 text-xs mt-0.5"></i>
-                                    <div>
-                                        <div class="font-semibold text-slate-200">${escapeHtml(step.title)}</div>
-                                        <div class="text-slate-400 text-[10px] mt-0.5">${escapeHtml(step.detail)}</div>
+                        if (data.steps && data.steps.length > 0) {
+                            let stepsList = '';
+                            data.steps.forEach(st => {
+                                stepsList += `
+                                    <div class="flex items-start gap-2 text-[11px] text-slate-300">
+                                        <i class="fa-solid fa-check-circle text-emerald-400 mt-0.5"></i>
+                                        <div>
+                                            <span class="font-semibold text-slate-200">${escapeHtml(st.title)}:</span>
+                                            <span class="text-slate-400">${escapeHtml(st.detail)}</span>
+                                        </div>
                                     </div>
-                                </div>
-                            `;
-                        });
-
-                        // Action Card (Write to File / Open / Copy)
-                        let codePreviewHtml = '';
-                        if (data.code) {
-                            codePreviewHtml = `
-                                <div class="mt-3 p-2.5 rounded-lg bg-slate-950 border border-slate-800 space-y-2">
-                                    <div class="flex items-center justify-between text-[11px]">
-                                        <span class="text-indigo-300 font-mono flex items-center gap-1.5">
-                                            <i class="fa-regular fa-file-code"></i> ${escapeHtml(data.targetPath || 'Generated')}
+                                `;
+                            });
+                            stepsHtml = `
+                                <details class="group bg-slate-950/80 rounded-lg border border-slate-800 p-2.5 transition">
+                                    <summary class="flex items-center justify-between text-[11px] font-semibold text-purple-300 cursor-pointer select-none">
+                                        <span class="flex items-center gap-1.5">
+                                            <i class="fa-solid fa-brain text-purple-400"></i> Agent Reasoning Steps (${data.steps.length})
                                         </span>
-                                        <span class="text-[10px] text-slate-500 uppercase font-mono">${data.language || 'code'}</span>
+                                        <i class="fa-solid fa-chevron-down text-[10px] group-open:rotate-180 transition"></i>
+                                    </summary>
+                                    <div class="mt-2 space-y-2 pt-2 border-t border-slate-800/80">
+                                        ${stepsList}
                                     </div>
-                                    <pre class="max-h-40 overflow-y-auto p-2 bg-slate-900/90 rounded text-[11px] font-mono text-slate-300 leading-5"><code>${escapeHtml(data.code)}</code></pre>
-                                    <div class="flex flex-wrap items-center gap-2 pt-1">
-                                        <button class="btn-write-target px-3 py-1.5 rounded-md bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-[11px] flex items-center gap-1.5 shadow transition">
+                                </details>
+                            `;
+                        }
+
+                        // 2. Parsed Markdown Body Response
+                        let parsedMarkdownHtml = '';
+                        if (window.marked && data.raw) {
+                            try {
+                                parsedMarkdownHtml = window.marked.parse(data.raw);
+                            } catch (e) {
+                                parsedMarkdownHtml = `<p>${escapeHtml(data.raw)}</p>`;
+                            }
+                        } else if (data.explanation) {
+                            parsedMarkdownHtml = `<p>${escapeHtml(data.explanation)}</p>`;
+                        }
+
+                        // 3. Interactive Code Card with Kernel Execution & Write File Actions
+                        let codeCardHtml = '';
+                        if (data.code) {
+                            const codeLang = data.language || 'code';
+                            codeCardHtml = `
+                                <div class="mt-3 rounded-xl bg-[#060910] border border-slate-800 overflow-hidden shadow-md">
+                                    <div class="bg-[#0e1424] px-3 py-2 flex items-center justify-between border-b border-slate-800 text-[11px]">
+                                        <div class="flex items-center gap-2 font-mono text-indigo-300">
+                                            <i class="fa-regular fa-file-code"></i>
+                                            <span class="font-semibold">${escapeHtml(data.targetPath || 'snippet.' + codeLang)}</span>
+                                        </div>
+                                        <span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 text-[10px] font-mono uppercase">${escapeHtml(codeLang)}</span>
+                                    </div>
+                                    <pre class="max-h-48 overflow-y-auto p-3 font-mono text-[11px] text-slate-200 leading-5 bg-[#090d16]"><code>${escapeHtml(data.code)}</code></pre>
+                                    
+                                    <!-- Code Actions Bar -->
+                                    <div class="p-2 bg-[#0c101c] border-t border-slate-800/80 flex flex-wrap items-center gap-2">
+                                        <button class="btn-chat-run-kernel px-3 py-1.5 rounded bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-[11px] flex items-center gap-1.5 shadow transition">
+                                            <i class="fa-solid fa-play"></i>
+                                            <span>Run Code in Kernel</span>
+                                        </button>
+                                        <button class="btn-chat-write-file px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-[11px] flex items-center gap-1.5 shadow transition">
                                             <i class="fa-solid fa-bolt"></i>
-                                            <span>Write to Target File</span>
+                                            <span>Apply to File</span>
                                         </button>
-                                        <button class="btn-view-diff px-2.5 py-1.5 rounded-md bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 font-medium text-[11px] transition">
-                                            <i class="fa-solid fa-code-compare mr-1"></i> View Diff
+                                        <button class="btn-chat-diff px-2.5 py-1.5 rounded bg-purple-600/20 text-purple-300 border border-purple-500/30 hover:bg-purple-600/30 font-medium text-[11px] transition">
+                                            <i class="fa-solid fa-code-compare mr-1"></i> Diff
                                         </button>
-                                        <button class="btn-copy-code px-2.5 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] transition">
+                                        <button class="btn-chat-copy px-2.5 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] transition">
                                             <i class="fa-regular fa-copy"></i>
                                         </button>
                                     </div>
+
+                                    <!-- Live Output Container in Chat Card -->
+                                    <div class="chat-live-console-container p-2"></div>
                                 </div>
                             `;
                         }
 
-                        agentCard.querySelector('.steps-box').innerHTML = stepsHtml + codePreviewHtml;
+                        contentEl.innerHTML = stepsHtml + parsedMarkdownHtml + codeCardHtml;
 
-                        // Wire up buttons in generated card
-                        const writeBtn = agentCard.querySelector('.btn-write-target');
+                        // Wire up buttons in Assistant Chat message
+                        const runKernelBtn = contentEl.querySelector('.btn-chat-run-kernel');
+                        const liveConsole = contentEl.querySelector('.chat-live-console-container');
+                        if (runKernelBtn) {
+                            runKernelBtn.addEventListener('click', async () => {
+                                await runCodeInKernel(data.code, data.language, data.targetPath, liveConsole);
+                            });
+                        }
+
+                        const writeBtn = contentEl.querySelector('.btn-chat-write-file');
                         if (writeBtn) {
                             writeBtn.addEventListener('click', async () => {
                                 await writeCodeDirectly(data.targetPath, data.code);
                             });
                         }
 
-                        const diffBtn = agentCard.querySelector('.btn-view-diff');
+                        const diffBtn = contentEl.querySelector('.btn-chat-diff');
                         if (diffBtn) {
                             diffBtn.addEventListener('click', () => {
                                 showDiffView(data.targetPath, data.code);
                             });
                         }
 
-                        const copyBtn = agentCard.querySelector('.btn-copy-code');
+                        const copyBtn = contentEl.querySelector('.btn-chat-copy');
                         if (copyBtn) {
                             copyBtn.addEventListener('click', () => {
                                 navigator.clipboard.writeText(data.code);
@@ -1047,23 +1362,31 @@
                         }
 
                         agentPromptInput.value = '';
-                        showNotification('Agentic task completed successfully!');
+                        showNotification('Agentic Chatbot response completed.');
                     } else {
-                        agentCard.querySelector('.steps-box').innerHTML = `
-                            <div class="p-2.5 rounded bg-red-950/40 border border-red-500/30 text-red-300 text-xs">
-                                <i class="fa-solid fa-circle-exclamation mr-1.5"></i> ${escapeHtml(data.error || 'Agent generation failed')}
+                        contentEl.innerHTML = `
+                            <div class="p-3 rounded bg-red-950/50 border border-red-500/30 text-red-300 text-xs flex items-start gap-2">
+                                <i class="fa-solid fa-circle-exclamation text-red-400 mt-0.5"></i>
+                                <div>
+                                    <div class="font-bold">Chatbot Error</div>
+                                    <div>${escapeHtml(data.error || 'Failed to process prompt.')}</div>
+                                </div>
                             </div>
                         `;
                     }
                 } catch (err) {
-                    agentCard.querySelector('.steps-box').innerHTML = `
-                        <div class="p-2.5 rounded bg-red-950/40 border border-red-500/30 text-red-300 text-xs">
-                            <i class="fa-solid fa-triangle-exclamation mr-1.5"></i> Network error connecting to agent
-                        </div>
-                    `;
+                    const contentEl = botMsgDiv.querySelector('.chat-response-content');
+                    if (contentEl) {
+                        contentEl.classList.remove('hidden');
+                        contentEl.innerHTML = `
+                            <div class="p-3 rounded bg-red-950/50 border border-red-500/30 text-red-300 text-xs">
+                                <i class="fa-solid fa-triangle-exclamation mr-1.5"></i> Network error connecting to Chatbot engine.
+                            </div>
+                        `;
+                    }
                 } finally {
                     btnSubmitPrompt.disabled = false;
-                    btnSubmitPrompt.innerHTML = '<i class="fa-solid fa-paper-plane text-xs mr-1"></i> Generate & Write';
+                    btnSubmitPrompt.innerHTML = '<i class="fa-solid fa-paper-plane text-xs mr-1"></i> Send Message';
                     document.getElementById('agent-status-label').textContent = 'Agent Engine Ready';
                     agentTimeline.scrollTop = agentTimeline.scrollHeight;
                 }
@@ -1148,6 +1471,7 @@
 
             // Initial load
             fetchTree();
+            fetchKernels();
             loadSavedKeys();
         });
     </script>

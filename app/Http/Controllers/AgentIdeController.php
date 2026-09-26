@@ -7,21 +7,13 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
-class AgentIdeController extends Controller
-{
-    /**
-     * Display the Agentic AI IDE interface.
-     */
-    public function index()
-    {
-        return view('agent_ide');
-    }
+class AgentIdeController extends Controller {
 
-    /**
-     * Get the project file tree.
-     */
-    public function getTree(Request $request)
-    {
+    public function index() { /* Display the Agentic AI IDE interface di view agent_ide*/
+        return view('agent_ide'); 
+    }
+    
+    public function getTree(Request $request) { /* Get the project file tree. */
         $basePath = base_path();
         $targetDir = $request->input('directory', '');
         
@@ -45,8 +37,7 @@ class AgentIdeController extends Controller
     /**
      * Recursively scan directory (ignoring heavy/hidden folders).
      */
-    private function scanDirectory(string $dir, string $basePath, int $depth = 0, int $maxDepth = 5): array
-    {
+    private function scanDirectory(string $dir, string $basePath, int $depth = 0, int $maxDepth = 5): array {
         if ($depth > $maxDepth || !is_dir($dir)) {
             return [];
         }
@@ -114,11 +105,7 @@ class AgentIdeController extends Controller
         return $items;
     }
 
-    /**
-     * Read file content.
-     */
-    public function getFile(Request $request)
-    {
+    public function getFile(Request $request) { /* Read file content. */
         $relativePath = $request->input('path');
         if (!$relativePath) {
             return response()->json(['success' => false, 'error' => 'Path is required'], 400);
@@ -144,12 +131,8 @@ class AgentIdeController extends Controller
             'lastModified' => filemtime($fullPath),
         ]);
     }
-
-    /**
-     * Save/Update file content.
-     */
-    public function saveFile(Request $request)
-    {
+    
+    public function saveFile(Request $request) { /* Save/Update file content. */
         $relativePath = $request->input('path');
         $content = $request->input('content', '');
 
@@ -177,11 +160,7 @@ class AgentIdeController extends Controller
         ]);
     }
 
-    /**
-     * Create new file or folder.
-     */
-    public function createItem(Request $request)
-    {
+    public function createItem(Request $request) { /* Create new file or folder. */
         $relativePath = $request->input('path');
         $type = $request->input('type', 'file'); // 'file' or 'directory'
         $initialContent = $request->input('content', '');
@@ -215,11 +194,7 @@ class AgentIdeController extends Controller
         ]);
     }
 
-    /**
-     * Delete a file or directory.
-     */
-    public function deleteItem(Request $request)
-    {
+    public function deleteItem(Request $request) { /* Delete a file or directory. */
         $relativePath = $request->input('path');
         if (!$relativePath) {
             return response()->json(['success' => false, 'error' => 'Path is required'], 400);
@@ -245,13 +220,9 @@ class AgentIdeController extends Controller
         ]);
     }
 
-    /**
-     * Connect to LLM API (Gemini, Claude, GPT, Kimi, DeepSeek, Ollama) and prompt Agent.
-     */
-    public function promptAgent(Request $request)
-    {
-        $provider = $request->input('provider', 'gemini'); // gemini, claude, gpt, kimi, deepseek, ollama
-        $model = $request->input('model', 'gemini-3.6-flash');
+    public function promptAgent(Request $request) { /* Connect to LLM API (Gemini, Claude, GPT, Kimi, DeepSeek, Ollama) and prompt Agent. */
+        $provider = $request->input('provider', 'ollama_cloud'); // gemini, claude, gpt, kimi, deepseek, ollama
+        $model = $request->input('model', 'kimi-k2.7-code');
         $prompt = $request->input('prompt', '');
         $apiKey = $request->input('apiKey', '');
         $targetDirectory = $request->input('targetDirectory', '');
@@ -282,8 +253,7 @@ class AgentIdeController extends Controller
         $systemContext .= "4. Be concise, precise, and state of the art in code quality.";
 
         try {
-            // Check if user provided API Key to call live LLM
-            if (!empty($apiKey)) {
+            if (!empty($apiKey)) { // Check if user provided API Key to call live LLM
                 $response = $this->callLiveLLM($provider, $model, $apiKey, $systemContext, $prompt, $conversationHistory);
                 if ($response['success']) {
                     return response()->json($this->formatAgenticResponse($response['text'], $provider, $model, $targetFile, $targetDirectory, $prompt));
@@ -308,11 +278,8 @@ class AgentIdeController extends Controller
         }
     }
 
-    /**
-     * Dispatch live call to chosen LLM provider API.
-     */
-    private function callLiveLLM(string $provider, string $model, string $apiKey, string $systemContext, string $prompt, array $history): array
-    {
+    /* Dispatch live call to chosen LLM provider API. */
+    private function callLiveLLM(string $provider, string $model, string $apiKey, string $systemContext, string $prompt, array $history): array {
         switch (strtolower($provider)) {
             case 'gemini':
                 $effectiveModel = $model ?: 'gemini-3.6-flash';
@@ -360,7 +327,7 @@ class AgentIdeController extends Controller
                 $err = $response->json()['error']['message'] ?? $response->body();
                 return ['success' => false, 'error' => "Claude API Error ({$response->status()}): {$err}"];
 
-            case 'kimi':
+            /* case 'kimi': */
             case 'moonshot':
                 $url = 'https://api.moonshot.cn/v1/chat/completions';
                 $response = Http::withHeaders([
@@ -406,29 +373,74 @@ class AgentIdeController extends Controller
                 return ['success' => false, 'error' => ucfirst($provider) . " API Error ({$response->status()}): {$err}"];
 
             case 'ollama':
-                $url = 'http://localhost:11434/api/generate';
-                $response = Http::timeout(60)->post($url, [
-                    'model' => $model ?: 'llama3',
-                    'system' => $systemContext,
-                    'prompt' => $prompt,
+            case 'ollama_cloud':
+            case 'ollama-cloud':
+            case 'ollamacloud':
+                $effectiveModel = $model ?: 'kimi-k2.6';
+                // If API Key is provided, use Ollama Cloud API endpoint (https://ollama.com/api/chat)
+                if (!empty($apiKey)) {
+                    $url = 'https://ollama.com/api/chat';
+                    $response = Http::withHeaders([
+                        'Authorization' => 'Bearer ' . $apiKey,
+                        'Content-Type' => 'application/json',
+                    ])
+                    ->timeout(90)
+                    ->post($url, [
+                        'model' => $effectiveModel,
+                        'messages' => [
+                            [
+                                'role' => 'system',
+                                'content' => $systemContext
+                            ],
+                            [
+                                'role' => 'user',
+                                'content' => $prompt
+                            ],
+                        ],
+                        'stream' => false,
+                    ]);
+
+                    if ($response->successful()) {
+                        $data = $response->json();
+                        $text = $data['message']['content'] ?? $data['response'] ?? $data['choices'][0]['message']['content'] ?? '';
+                        if (!empty($text)) {
+                            return ['success' => true, 'text' => $text];
+                        }
+                        return ['success' => false, 'error' => 'Ollama Cloud API returned an empty text response.'];
+                    }
+
+                    $errData = $response->json();
+                    $err = $errData['error']['message'] ?? $errData['error'] ?? $response->body();
+                    return ['success' => false, 'error' => "Ollama Cloud API Error ({$response->status()}): {$err}"];
+                }
+
+                // Fallback to Local Ollama instance if no API Key provided
+                $localUrl = 'http://localhost:11434/api/chat';
+                $localResponse = Http::timeout(60)->post($localUrl, [
+                    'model' => $effectiveModel,
+                    'messages' => [
+                        ['role' => 'system', 'content' => $systemContext],
+                        ['role' => 'user', 'content' => $prompt]
+                    ],
                     'stream' => false,
                 ]);
-                if ($response->successful()) {
-                    $data = $response->json();
-                    $text = $data['response'] ?? '';
-                    return ['success' => true, 'text' => $text];
+
+                if ($localResponse->successful()) {
+                    $data = $localResponse->json();
+                    $text = $data['message']['content'] ?? $data['response'] ?? '';
+                    if (!empty($text)) {
+                        return ['success' => true, 'text' => $text];
+                    }
                 }
-                return ['success' => false, 'error' => "Ollama Error ({$response->status()}): Is local Ollama running?"];
+
+                return ['success' => false, 'error' => 'Ollama API key is missing for Ollama Cloud, and local Ollama server is not running on localhost:11434.'];
         }
 
         return ['success' => false, 'error' => 'Provider call failed'];
     }
 
-    /**
-     * Format raw AI response into agentic steps, thought process, and file actions.
-     */
-    private function formatAgenticResponse(string $rawText, string $provider, string $model, ?string $targetFile, ?string $targetDirectory, string $prompt = ''): array
-    {
+    /*Format raw AI response into agentic steps, thought process, and file actions. */
+    private function formatAgenticResponse(string $rawText, string $provider, string $model, ?string $targetFile, ?string $targetDirectory, string $prompt = ''): array {
         // Extract code blocks and target files
         $code = '';
         $language = 'php';
@@ -474,8 +486,7 @@ class AgentIdeController extends Controller
     /**
      * Generate rich agentic response when offline or testing without API key.
      */
-    private function generateIntelligentAgentResponse(string $prompt, string $provider, string $model, ?string $targetFile, ?string $targetDirectory, ?string $currentCode, ?string $apiNotice = null): array
-    {
+    private function generateIntelligentAgentResponse(string $prompt, string $provider, string $model, ?string $targetFile, ?string $targetDirectory, ?string $currentCode, ?string $apiNotice = null): array {
         $cleanPrompt = strtolower($prompt);
         $targetPath = $targetFile;
         $language = 'php';
@@ -497,18 +508,24 @@ class AgentIdeController extends Controller
             $language = 'php';
             $code = "<?php\n\nuse App\Http\Controllers\AgentIdeController;\n\ntest('ide page loads successfully', function () {\n    \$response = \$this->get(route('ide.index'));\n    \$response->assertStatus(200);\n    \$response->assertSee('Agentic AI IDE');\n});\n\ntest('file tree api returns project structure', function () {\n    \$response = \$this->getJson(route('ide.api.tree'));\n    \$response->assertStatus(200)\n        ->assertJsonStructure(['success', 'root', 'tree']);\n});\n\ntest('agent prompt returns structured reasoning and code', function () {\n    \$response = \$this->postJson(route('ide.api.agent.prompt'), [\n        'prompt' => 'Create a user controller',\n        'provider' => 'gemini',\n        'model' => 'gemini-2.0-flash'\n    ]);\n    \$response->assertStatus(200)\n        ->assertJsonStructure(['success', 'steps', 'code', 'targetPath']);\n});";
             $explanation = "Generated complete Pest test suite covering page loading, directory exploration, and Agentic AI prompt generation.";
+        } elseif (str_contains($cleanPrompt, 'python') || str_contains($cleanPrompt, 'py') || str_contains($cleanPrompt, 'script') || str_contains($cleanPrompt, 'data') || str_contains($cleanPrompt, 'fibonacci') || str_contains($cleanPrompt, 'math')) {
+            $targetPath = $targetFile ?: ($targetDirectory ? rtrim($targetDirectory, '/\\') . '/script.py' : 'script.py');
+            $language = 'python';
+            $code = "import sys\nimport time\n\ndef fibonacci(n):\n    \"\"\"Generate Fibonacci sequence up to n numbers.\"\"\"\n    sequence = [0, 1]\n    while len(sequence) < n:\n        sequence.append(sequence[-1] + sequence[-2])\n    return sequence[:n]\n\ndef is_prime(num):\n    \"\"\"Check if a number is prime.\"\"\"\n    if num < 2:\n        return False\n    for i in range(2, int(num**0.5) + 1):\n        if num % i == 0:\n            return False\n    return True\n\nif __name__ == '__main__':\n    print('=== Antigravity Python Kernel Execution ===')\n    print(f'Python Version: {sys.version.split()[0]}')\n    print(f'System Time: {time.strftime(\"%Y-%m-%d %H:%M:%S\")}')\n    \n    fib = fibonacci(12)\n    print(f'Fibonacci (first 12): {fib}')\n    \n    primes = [x for x in range(1, 50) if is_prime(x)]\n    print(f'Prime numbers up to 50: {primes}')\n    print('Kernel Execution Completed Successfully!')";
+            $explanation = "Generated a high-performance Python 3 script with mathematical algorithms, timing functions, and kernel diagnostic outputs.";
         } else {
             // Target folder specific filename derivation
             $folderBasename = $targetDirectory ? basename(str_replace('\\', '/', $targetDirectory)) : '';
             $className = $folderBasename ? ucfirst(str_replace(['-', '_'], '', $folderBasename)) . 'Helper' : 'AgentService';
             $filename = $className . '.php';
 
-            if (preg_match('/([a-zA-Z0-9_\-]+\.(php|vue|js|ts|css|html|json|md))/i', $prompt, $pm)) {
+            if (preg_match('/([a-zA-Z0-9_\-]+\.(php|vue|js|ts|css|html|json|md|py))/i', $prompt, $pm)) {
                 $filename = $pm[1];
             }
 
             $targetPath = $targetFile ?: ($targetDirectory ? rtrim($targetDirectory, '/\\') . '/' . $filename : 'app/Services/' . $filename);
-            $language = 'php';
+            $language = pathinfo($filename, PATHINFO_EXTENSION) ?: 'php';
+            if ($language === 'py') $language = 'python';
             $code = "<?php\n\nnamespace App\Services;\n\nclass {$className}\n{\n    /**\n     * Execute autonomous agent workflow.\n     */\n    public function execute(string \$goal, array \$context = []): array\n    {\n        // Step 1: Context parsing & AST analysis\n        \$plan = \$this->synthesizePlan(\$goal, \$context);\n\n        // Step 2: Code synthesis & generation\n        \$artifacts = \$this->generateArtifacts(\$plan);\n\n        return [\n            'status' => 'completed',\n            'goal' => \$goal,\n            'plan' => \$plan,\n            'artifacts' => \$artifacts,\n            'timestamp' => now()->toIso8601String(),\n        ];\n    }\n\n    protected function synthesizePlan(string \$goal, array \$context): array\n    {\n        return [\n            'goal' => \$goal,\n            'steps' => ['Analyze requirements', 'Scan target directory', 'Generate patch', 'Verify diff'],\n        ];\n    }\n\n    protected function generateArtifacts(array \$plan): array\n    {\n        return [\n            'generated_files' => 1,\n            'status' => 'ready_to_apply'\n        ];\n    }\n}";
             $explanation = "Generated an autonomous service class adhering to SOLID principles and clean architecture.";
         }
@@ -534,5 +551,186 @@ class AgentIdeController extends Controller
             'explanation' => $explanation,
             'hasDiff' => true,
         ];
+    }
+
+    /**
+     * Detect installed runtime kernels (Python, PHP, Node, Shell).
+     */
+    public function getKernels()
+    {
+        $kernels = [];
+
+        // Check Python
+        $pythonVersion = $this->execVersion('python --version');
+        if (!$pythonVersion) {
+            $pythonVersion = $this->execVersion('python3 --version');
+        }
+        $kernels['python'] = [
+            'name' => 'Python 3 Kernel',
+            'available' => !empty($pythonVersion),
+            'version' => $pythonVersion ?: 'Not Detected',
+            'executable' => 'python',
+            'icon' => 'fa-brands fa-python',
+            'color' => 'text-amber-400'
+        ];
+
+        // Check PHP
+        $phpVersion = $this->execVersion('php -v');
+        if ($phpVersion && preg_match('/PHP\s+([0-9\.]+)/i', $phpVersion, $m)) {
+            $phpVersion = 'PHP ' . $m[1];
+        }
+        $kernels['php'] = [
+            'name' => 'PHP Kernel',
+            'available' => !empty($phpVersion),
+            'version' => $phpVersion ?: 'PHP ' . PHP_VERSION,
+            'executable' => 'php',
+            'icon' => 'fa-brands fa-php',
+            'color' => 'text-indigo-400'
+        ];
+
+        // Check Node.js
+        $nodeVersion = $this->execVersion('node -v');
+        $kernels['node'] = [
+            'name' => 'Node.js Kernel',
+            'available' => !empty($nodeVersion),
+            'version' => $nodeVersion ? 'Node ' . trim($nodeVersion) : 'Not Detected',
+            'executable' => 'node',
+            'icon' => 'fa-brands fa-node-js',
+            'color' => 'text-emerald-400'
+        ];
+
+        return response()->json([
+            'success' => true,
+            'kernels' => $kernels
+        ]);
+    }
+
+    private function execVersion(string $command): ?string
+    {
+        try {
+            $output = [];
+            $returnVar = 1;
+            exec($command . ' 2>&1', $output, $returnVar);
+            if ($returnVar === 0 && !empty($output)) {
+                return trim($output[0]);
+            }
+        } catch (\Throwable $e) {
+            // Ignore
+        }
+        return null;
+    }
+
+    /**
+     * Execute code directly in system kernel (Python, PHP, Node, Shell).
+     */
+    public function runCode(Request $request)
+    {
+        $code = $request->input('code', '');
+        $filePath = $request->input('path', '');
+        $language = strtolower($request->input('language', ''));
+
+        $basePath = base_path();
+
+        if (empty($code) && !empty($filePath)) {
+            $fullPath = realpath($basePath . DIRECTORY_SEPARATOR . $filePath);
+            if ($fullPath && str_starts_with($fullPath, $basePath) && is_file($fullPath)) {
+                $code = file_get_contents($fullPath);
+                if (empty($language)) {
+                    $ext = pathinfo($fullPath, PATHINFO_EXTENSION);
+                    $language = $ext;
+                }
+            }
+        }
+
+        if (empty(trim($code))) {
+            return response()->json([
+                'success' => false,
+                'error' => 'No code provided to execute.'
+            ], 400);
+        }
+
+        // Determine executable based on language / extension
+        $executable = 'php';
+        $ext = 'php';
+        $kernelName = 'PHP Engine';
+
+        if (in_array($language, ['python', 'py'])) {
+            $executable = 'python';
+            $ext = 'py';
+            $kernelName = 'Python 3 Kernel';
+        } elseif (in_array($language, ['javascript', 'js', 'node', 'typescript', 'ts'])) {
+            $executable = 'node';
+            $ext = 'js';
+            $kernelName = 'Node.js Kernel';
+        } elseif (in_array($language, ['php'])) {
+            $executable = 'php';
+            $ext = 'php';
+            $kernelName = 'PHP Kernel';
+        } elseif (in_array($language, ['shell', 'sh', 'bash', 'powershell', 'ps1', 'bat'])) {
+            $executable = 'powershell';
+            $ext = 'ps1';
+            $kernelName = 'Powershell Kernel';
+        }
+
+        // Create temporary script file in storage/app
+        $tempDir = storage_path('app/kernel_runner');
+        if (!is_dir($tempDir)) {
+            mkdir($tempDir, 0755, true);
+        }
+
+        $tempFile = $tempDir . DIRECTORY_SEPARATOR . 'run_' . uniqid() . '.' . $ext;
+        file_put_contents($tempFile, $code);
+
+        $startTime = microtime(true);
+
+        // Command line construction
+        if ($executable === 'powershell') {
+            $cmd = "powershell -ExecutionPolicy Bypass -File " . escapeshellarg($tempFile);
+        } else {
+            $cmd = escapeshellcmd($executable) . " " . escapeshellarg($tempFile);
+        }
+
+        $descriptorspec = [
+            0 => ["pipe", "r"],  // stdin
+            1 => ["pipe", "w"],  // stdout
+            2 => ["pipe", "w"]   // stderr
+        ];
+
+        $process = proc_open($cmd, $descriptorspec, $pipes, $basePath);
+
+        $stdout = '';
+        $stderr = '';
+        $exitCode = -1;
+
+        if (is_resource($process)) {
+            fclose($pipes[0]);
+
+            // Read output
+            $stdout = stream_get_contents($pipes[1]);
+            fclose($pipes[1]);
+
+            $stderr = stream_get_contents($pipes[2]);
+            fclose($pipes[2]);
+
+            $exitCode = proc_close($process);
+        }
+
+        $executionTimeMs = round((microtime(true) - $startTime) * 1000, 2);
+
+        // Cleanup temporary script file
+        if (file_exists($tempFile)) {
+            @unlink($tempFile);
+        }
+
+        return response()->json([
+            'success' => true,
+            'kernel' => $kernelName,
+            'executable' => $executable,
+            'language' => $language ?: $ext,
+            'stdout' => $stdout ?: '',
+            'stderr' => $stderr ?: '',
+            'exitCode' => $exitCode,
+            'executionTimeMs' => $executionTimeMs,
+        ]);
     }
 }

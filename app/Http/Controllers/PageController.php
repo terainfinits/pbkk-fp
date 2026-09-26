@@ -4,13 +4,11 @@ namespace App\Http\Controllers;
 
 class PageController extends Controller
 {
-    public function index()
-    {
+    public function index() {
         return view('home');
     }
 
-    public function agent($tema = 'General Assistant Agent')
-    {
+    public function agent($tema = 'General Assistant Agent') {
         $lowercaseTema = strtolower($tema);
         $codingAliases = ['coding', 'coding assistant', 'coding assistant agent', 'coding-assistant', 'coding-assistant-agent', 'coding_assistant', 'coding_assistant_agent'];
 
@@ -31,8 +29,7 @@ class PageController extends Controller
         ]);
     }
 
-    public function mahasiswaDetail($nrp)
-    {
+    public function mahasiswaDetail($nrp) {
         return view('mahasiswa', compact('nrp'));
     }
 }

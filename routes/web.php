@@ -16,11 +16,13 @@ Route::get('/hitung-ipk/{ip1?}/{ip2?}', [CalculatorController::class, 'calculate
 Route::prefix('ide')->name('ide.')->group(function () {
     Route::get('/', [AgentIdeController::class, 'index'])->name('index');
     Route::get('/api/tree', [AgentIdeController::class, 'getTree'])->name('api.tree');
+    Route::get('/api/kernels', [AgentIdeController::class, 'getKernels'])->name('api.kernels');
     Route::post('/api/file/read', [AgentIdeController::class, 'getFile'])->name('api.file.read');
     Route::post('/api/file/save', [AgentIdeController::class, 'saveFile'])->name('api.file.save');
     Route::post('/api/file/create', [AgentIdeController::class, 'createItem'])->name('api.file.create');
     Route::post('/api/file/delete', [AgentIdeController::class, 'deleteItem'])->name('api.file.delete');
     Route::post('/api/agent/prompt', [AgentIdeController::class, 'promptAgent'])->name('api.agent.prompt');
+    Route::post('/api/code/run', [AgentIdeController::class, 'runCode'])->name('api.code.run');
 });
 
 Route::prefix('dashboard')->name('dashboard.')->group(function () {
