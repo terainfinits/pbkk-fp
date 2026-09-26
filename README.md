@@ -1,14 +1,14 @@
-# PBKK-Tugas-2
+# PBKK-FP
 
-## Website Link
+## Website Link (VPS Agung)
 
 [http://172.188.98.77/](http://172.188.98.77/)
 
 ## Local Setup
 
 ```
-git clone git@github.com:theRadn/PBKK-Tugas-2.git
-cd PBKK-Tugas-2
+git clone https://github.com/terainfinits/pbkk-fp
+cd pbkk-fp
 ```
 
 Setelah di folder kerja jalankan command ini
