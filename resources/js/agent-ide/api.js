@@ -31,4 +31,5 @@ export const api = {
     fetchKernels: () => getJson(routes.kernels),
     runCode: (code, language, path) => postJson(routes.codeRun, { code, language, path }),
     promptAgent: (payload) => postJson(routes.agentPrompt, payload),
+    executeCommand: (command, cwd) => postJson(routes.terminalExecute, { command, cwd }),
 };

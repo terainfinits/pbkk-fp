@@ -1,18 +1,34 @@
-// Bottom terminal drawer: kernel detection + code execution output.
+// Interactive terminal module — PowerShell-like shell inside the IDE.
+// Supports command execution, `cd` navigation, command history (↑/↓),
+// `cls`/`clear` screen clearing, and tab switching between Shell & Kernel.
 
 import { api } from './api.js';
 import { dom } from './dom.js';
 import { escapeHtml, showNotification } from './utils.js';
 
+// ── State ──────────────────────────────────────────────────────────────
 let isTerminalMinimized = false;
+let activeTab = 'shell';        // 'shell' | 'kernel'
+let currentCwd = '';            // relative to basePath
+let commandHistory = [];
+let historyIndex = -1;
+let isExecuting = false;
+
+// We keep separate output buffers so switching tabs doesn't destroy content.
+let shellOutputHtml = '';
+let kernelOutputHtml = '';
+
+// ── Public helpers ─────────────────────────────────────────────────────
 
 export function openTerminalDrawer() {
     if (isTerminalMinimized) {
         isTerminalMinimized = false;
-        dom.terminalDrawer.style.height = '176px';
+        dom.terminalDrawer.style.height = '220px';
         dom.terminalToggleIcon.className = 'fa-solid fa-chevron-down text-[10px]';
     }
 }
+
+// ── Kernel detection (unchanged) ───────────────────────────────────────
 
 export async function fetchKernels() {
     try {
@@ -34,21 +50,18 @@ export async function fetchKernels() {
     }
 }
 
-/**
- * Run a code snippet in the matching kernel. Writes to the main terminal
- * drawer always, and optionally mirrors a compact copy into a chat card's
- * own live-output container (`targetConsole`).
- */
+// ── Run code in kernel (called from editor / chat) ─────────────────────
+
 export async function runCodeInKernel(codeContent, language, filePath = '', targetConsole = null) {
     openTerminalDrawer();
+    switchToTab('kernel');
 
     const execLang = language || (filePath ? filePath.split('.').pop() : 'php');
 
-    const promptLine = document.createElement('div');
-    promptLine.className = 'text-indigo-300 font-bold flex items-center gap-2 mt-2 pt-2 border-t border-slate-800/80';
-    promptLine.innerHTML = `<span class="text-emerald-400">➜</span> <span>Executing ${escapeHtml(execLang.toUpperCase())} kernel${filePath ? ' (' + escapeHtml(filePath) + ')' : ''}...</span>`;
-    dom.terminalOutputBody.appendChild(promptLine);
-    dom.terminalOutputBody.scrollTop = dom.terminalOutputBody.scrollHeight;
+    appendToKernel(`<div class="text-indigo-300 font-bold flex items-center gap-2 mt-2 pt-2 border-t border-slate-800/80">
+        <span class="text-emerald-400">➜</span>
+        <span>Executing ${escapeHtml(execLang.toUpperCase())} kernel${filePath ? ' (' + escapeHtml(filePath) + ')' : ''}...</span>
+    </div>`);
 
     if (targetConsole) {
         targetConsole.innerHTML = `<div class="text-indigo-400 animate-pulse"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Running snippet in ${escapeHtml(execLang)} kernel...</div>`;
@@ -83,11 +96,7 @@ export async function runCodeInKernel(codeContent, language, filePath = '', targ
                 <span>Time: ${data.executionTimeMs}ms</span>
             </div>`;
 
-            const outBlock = document.createElement('div');
-            outBlock.className = 'pl-3 border-l-2 border-slate-700 my-1 space-y-1';
-            outBlock.innerHTML = outputHtml + statusBadge;
-            dom.terminalOutputBody.appendChild(outBlock);
-            dom.terminalOutputBody.scrollTop = dom.terminalOutputBody.scrollHeight;
+            appendToKernel(`<div class="pl-3 border-l-2 border-slate-700 my-1 space-y-1">${outputHtml}${statusBadge}</div>`);
 
             if (targetConsole) {
                 targetConsole.innerHTML = `
@@ -103,44 +112,271 @@ export async function runCodeInKernel(codeContent, language, filePath = '', targ
 
             showNotification(`Code executed in ${data.kernel} (${data.executionTimeMs}ms)`);
         } else {
-            const errDiv = document.createElement('div');
-            errDiv.className = 'text-red-400 pl-3 border-l-2 border-red-500 my-1';
-            errDiv.textContent = `Error: ${data.error || 'Execution failed'}`;
-            dom.terminalOutputBody.appendChild(errDiv);
-
+            appendToKernel(`<div class="text-red-400 pl-3 border-l-2 border-red-500 my-1">Error: ${escapeHtml(data.error || 'Execution failed')}</div>`);
             if (targetConsole) {
                 targetConsole.innerHTML = `<div class="text-red-400 text-[10px] font-mono">Execution failed: ${escapeHtml(data.error)}</div>`;
             }
         }
     } catch (err) {
-        const errDiv = document.createElement('div');
-        errDiv.className = 'text-red-400 pl-3 border-l-2 border-red-500 my-1';
-        errDiv.textContent = 'Execution network exception.';
-        dom.terminalOutputBody.appendChild(errDiv);
+        appendToKernel(`<div class="text-red-400 pl-3 border-l-2 border-red-500 my-1">Execution network exception.</div>`);
         if (targetConsole) {
             targetConsole.innerHTML = `<div class="text-red-400 text-[10px]">Execution exception.</div>`;
         }
     }
 }
 
+// ── Interactive shell command execution ─────────────────────────────────
+
+async function executeShellCommand(command) {
+    if (!command.trim() || isExecuting) return;
+
+    isExecuting = true;
+
+    // Push to history
+    if (commandHistory.length === 0 || commandHistory[commandHistory.length - 1] !== command) {
+        commandHistory.push(command);
+    }
+    historyIndex = commandHistory.length;
+
+    const cwdLabel = currentCwd ? `~/${currentCwd}` : '~';
+
+    // Show the command in output
+    appendToShell(`<div class="flex items-start gap-2 mt-1">
+        <span class="text-cyan-400 font-bold shrink-0">PS ${escapeHtml(cwdLabel)}></span>
+        <span class="text-slate-100">${escapeHtml(command)}</span>
+    </div>`);
+
+    // Handle client-side clear
+    if (['cls', 'clear'].includes(command.trim().toLowerCase())) {
+        clearShellOutput();
+        isExecuting = false;
+        dom.terminalInput.focus();
+        return;
+    }
+
+    try {
+        const data = await api.executeCommand(command, currentCwd);
+
+        if (data.success) {
+            // Handle `cls`/`clear` returned by server
+            if (data.stdout === '__CLEAR__') {
+                clearShellOutput();
+                isExecuting = false;
+                dom.terminalInput.focus();
+                return;
+            }
+
+            // Update cwd if server changed it (cd command)
+            if (data.cwd !== undefined) {
+                currentCwd = data.cwd || '';
+                updatePromptCwd();
+            }
+
+            // Render stdout
+            if (data.stdout && data.stdout.trim()) {
+                appendToShell(`<pre class="text-slate-300 whitespace-pre-wrap leading-5 ml-0">${escapeHtml(data.stdout)}</pre>`);
+            }
+            // Render stderr
+            if (data.stderr && data.stderr.trim()) {
+                appendToShell(`<pre class="text-amber-400 whitespace-pre-wrap leading-5 ml-0">${escapeHtml(data.stderr)}</pre>`);
+            }
+
+            // Show exit code if non-zero (and there was output)
+            if (data.exitCode !== 0) {
+                appendToShell(`<div class="text-[10px] text-red-400 mt-0.5">Exit code: ${data.exitCode} (${data.executionTimeMs}ms)</div>`);
+            }
+        } else {
+            appendToShell(`<div class="text-red-400">${escapeHtml(data.error || 'Command execution failed.')}</div>`);
+        }
+    } catch (err) {
+        appendToShell(`<div class="text-red-400">Network error — could not reach server.</div>`);
+    }
+
+    isExecuting = false;
+    dom.terminalInput.focus();
+}
+
+// ── Output helpers ─────────────────────────────────────────────────────
+
+function appendToShell(html) {
+    const el = document.createElement('div');
+    el.innerHTML = html;
+    dom.terminalOutputBody.appendChild(el);
+    dom.terminalOutputBody.scrollTop = dom.terminalOutputBody.scrollHeight;
+    // Cache
+    shellOutputHtml = dom.terminalOutputBody.innerHTML;
+}
+
+function appendToKernel(html) {
+    // If we're on the kernel tab, append directly
+    if (activeTab === 'kernel') {
+        const el = document.createElement('div');
+        el.innerHTML = html;
+        dom.terminalOutputBody.appendChild(el);
+        dom.terminalOutputBody.scrollTop = dom.terminalOutputBody.scrollHeight;
+        kernelOutputHtml = dom.terminalOutputBody.innerHTML;
+    } else {
+        // Buffer it
+        kernelOutputHtml += html;
+    }
+}
+
+function clearShellOutput() {
+    const welcomeMsg = `<div class="text-slate-500 flex items-center gap-2">
+        <span class="text-cyan-400 font-bold">PS></span>
+        <span>Console cleared. Ready for commands.</span>
+    </div>`;
+
+    if (activeTab === 'shell') {
+        dom.terminalOutputBody.innerHTML = welcomeMsg;
+    }
+    shellOutputHtml = welcomeMsg;
+}
+
+function updatePromptCwd() {
+    const label = currentCwd ? `PS ~/${currentCwd}>` : 'PS ~>';
+    dom.terminalPromptCwd.textContent = label;
+}
+
+// ── Tab switching ──────────────────────────────────────────────────────
+
+function switchToTab(tabName) {
+    if (activeTab === tabName) return;
+
+    // Save current output
+    if (activeTab === 'shell') {
+        shellOutputHtml = dom.terminalOutputBody.innerHTML;
+    } else {
+        kernelOutputHtml = dom.terminalOutputBody.innerHTML;
+    }
+
+    activeTab = tabName;
+
+    // Toggle tab button styles
+    const shellTab = dom.terminalTabShell;
+    const kernelTab = dom.terminalTabKernel;
+    const inputBar = document.getElementById('terminal-input-bar');
+
+    if (tabName === 'shell') {
+        shellTab.className = 'terminal-tab px-3 py-1 rounded-t flex items-center gap-1.5 text-slate-200 font-semibold bg-[#080c14] border border-slate-700 border-b-0 -mb-px relative z-10 transition';
+        kernelTab.className = 'terminal-tab px-3 py-1 rounded-t flex items-center gap-1.5 text-slate-500 hover:text-slate-300 bg-transparent border border-transparent transition';
+        dom.terminalOutputBody.innerHTML = shellOutputHtml || getShellWelcome();
+        inputBar.style.display = 'flex';
+        dom.terminalInput.focus();
+    } else {
+        kernelTab.className = 'terminal-tab px-3 py-1 rounded-t flex items-center gap-1.5 text-slate-200 font-semibold bg-[#080c14] border border-slate-700 border-b-0 -mb-px relative z-10 transition';
+        shellTab.className = 'terminal-tab px-3 py-1 rounded-t flex items-center gap-1.5 text-slate-500 hover:text-slate-300 bg-transparent border border-transparent transition';
+        dom.terminalOutputBody.innerHTML = kernelOutputHtml || getKernelWelcome();
+        inputBar.style.display = 'none';
+    }
+
+    dom.terminalOutputBody.scrollTop = dom.terminalOutputBody.scrollHeight;
+}
+
+function getShellWelcome() {
+    return `<div class="text-slate-500 flex items-center gap-2">
+        <span class="text-cyan-400 font-bold">PS></span>
+        <span>Windows PowerShell — type commands below. Supports <span class="text-emerald-400">python</span>, <span class="text-indigo-400">php</span>, <span class="text-yellow-400">node</span>, <span class="text-slate-300">dir</span>, <span class="text-slate-300">cd</span>, and all PowerShell commands.</span>
+    </div>`;
+}
+
+function getKernelWelcome() {
+    return `<div class="text-slate-500 flex items-center gap-2">
+        <span class="text-emerald-400 font-bold">➜</span>
+        <span>Magentic Kernel Console initialized. Click "Run Code" or execute snippets in Chatbot to run Python, PHP, or Node.js scripts.</span>
+    </div>`;
+}
+
+// ── Initialization ─────────────────────────────────────────────────────
+
 export function initTerminal() {
+    // Toggle minimize/restore
     dom.btnToggleTerminal.addEventListener('click', () => {
         isTerminalMinimized = !isTerminalMinimized;
         if (isTerminalMinimized) {
             dom.terminalDrawer.style.height = '32px';
             dom.terminalToggleIcon.className = 'fa-solid fa-chevron-up text-[10px]';
         } else {
-            dom.terminalDrawer.style.height = '176px';
+            dom.terminalDrawer.style.height = '220px';
             dom.terminalToggleIcon.className = 'fa-solid fa-chevron-down text-[10px]';
         }
     });
 
+    // Clear button
     dom.btnClearTerminal.addEventListener('click', () => {
-        dom.terminalOutputBody.innerHTML = `
-            <div class="text-slate-500 flex items-center gap-2">
-                <span class="text-emerald-400 font-bold">➜</span>
-                <span>Console cleared. Ready for kernel execution.</span>
-            </div>
-        `;
+        if (activeTab === 'shell') {
+            clearShellOutput();
+        } else {
+            dom.terminalOutputBody.innerHTML = getKernelWelcome();
+            kernelOutputHtml = '';
+        }
     });
+
+    // Tab switching
+    dom.terminalTabShell.addEventListener('click', () => switchToTab('shell'));
+    dom.terminalTabKernel.addEventListener('click', () => switchToTab('kernel'));
+
+    // Keyboard handler for the terminal input
+    dom.terminalInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const command = dom.terminalInput.value;
+            dom.terminalInput.value = '';
+            executeShellCommand(command);
+        }
+
+        // History navigation
+        if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (commandHistory.length > 0 && historyIndex > 0) {
+                historyIndex--;
+                dom.terminalInput.value = commandHistory[historyIndex];
+            }
+        }
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (historyIndex < commandHistory.length - 1) {
+                historyIndex++;
+                dom.terminalInput.value = commandHistory[historyIndex];
+            } else {
+                historyIndex = commandHistory.length;
+                dom.terminalInput.value = '';
+            }
+        }
+
+        // Ctrl+L = clear
+        if (e.key === 'l' && e.ctrlKey) {
+            e.preventDefault();
+            clearShellOutput();
+        }
+
+        // Ctrl+C = cancel / clear input
+        if (e.key === 'c' && e.ctrlKey) {
+            e.preventDefault();
+            if (dom.terminalInput.value) {
+                // Show cancelled command in output
+                const cwdLabel = currentCwd ? `~/${currentCwd}` : '~';
+                appendToShell(`<div class="flex items-start gap-2 mt-1">
+                    <span class="text-cyan-400 font-bold shrink-0">PS ${escapeHtml(cwdLabel)}></span>
+                    <span class="text-slate-400">${escapeHtml(dom.terminalInput.value)}^C</span>
+                </div>`);
+                dom.terminalInput.value = '';
+            }
+        }
+    });
+
+    // Click anywhere in terminal output focuses the input
+    dom.terminalOutputBody.addEventListener('click', () => {
+        if (activeTab === 'shell' && window.getSelection().toString() === '') {
+            dom.terminalInput.focus();
+        }
+    });
+
+    // Initialize shell welcome
+    shellOutputHtml = getShellWelcome();
+
+    // Focus the input on load
+    setTimeout(() => {
+        if (dom.terminalInput) dom.terminalInput.focus();
+    }, 300);
 }

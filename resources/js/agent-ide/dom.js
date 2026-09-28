@@ -43,4 +43,10 @@ export const dom = {
     terminalToggleIcon: document.getElementById('terminal-toggle-icon'),
     terminalKernelBadge: document.getElementById('terminal-kernel-badge'),
     terminalExecTime: document.getElementById('terminal-exec-time'),
+
+    // Interactive terminal input
+    terminalInput: document.getElementById('terminal-input'),
+    terminalPromptCwd: document.getElementById('terminal-prompt-cwd'),
+    terminalTabShell: document.getElementById('terminal-tab-shell'),
+    terminalTabKernel: document.getElementById('terminal-tab-kernel'),
 };

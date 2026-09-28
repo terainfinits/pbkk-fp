@@ -56,6 +56,7 @@
             kernels: "{{ route('ide.api.kernels') }}",
             codeRun: "{{ route('ide.api.code.run') }}",
             agentPrompt: "{{ route('ide.api.agent.prompt') }}",
+            terminalExecute: "{{ route('ide.api.terminal.execute') }}",
         };
     </script>
 

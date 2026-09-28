@@ -251,14 +251,22 @@
                 </div>
 
                 <!-- BOTTOM TERMINAL CONSOLE DRAWER -->
-                <div id="terminal-drawer" class="h-44 bg-[#080c14] border-t border-slate-800 flex flex-col shrink-0 transition-all duration-200">
-                    <div class="h-8 bg-[#0d1322] px-3 flex items-center justify-between border-b border-slate-800 text-xs select-none">
-                        <div class="flex items-center gap-3">
-                            <div class="flex items-center gap-1.5 text-slate-200 font-semibold">
-                                <i class="fa-solid fa-terminal text-emerald-400"></i>
-                                <span>Magentic Kernel Console</span>
-                            </div>
-                            <span id="terminal-kernel-badge" class="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-mono">
+                <div id="terminal-drawer" class="bg-[#080c14] border-t border-slate-800 flex flex-col shrink-0 transition-all duration-200" style="height: 220px;">
+                    <div class="h-8 bg-[#0d1322] px-3 flex items-center justify-between border-b border-slate-800 text-xs select-none shrink-0">
+                        <div class="flex items-center gap-1">
+                            <button id="terminal-tab-shell"
+                                    class="terminal-tab px-3 py-1 rounded-t flex items-center gap-1.5 text-slate-200 font-semibold bg-[#080c14] border border-slate-700 border-b-0 -mb-px relative z-10 transition"
+                                    title="Interactive PowerShell">
+                                <i class="fa-solid fa-terminal text-cyan-400 text-[10px]"></i>
+                                <span>Terminal</span>
+                            </button>
+                            <button id="terminal-tab-kernel"
+                                    class="terminal-tab px-3 py-1 rounded-t flex items-center gap-1.5 text-slate-500 hover:text-slate-300 bg-transparent border border-transparent transition"
+                                    title="Kernel execution output">
+                                <i class="fa-solid fa-microchip text-indigo-400 text-[10px]"></i>
+                                <span>Kernel</span>
+                            </button>
+                            <span id="terminal-kernel-badge" class="ml-2 px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-mono">
                                 System Kernel Ready
                             </span>
                             <span id="terminal-exec-time" class="text-[10px] text-slate-500 font-mono hidden">0ms</span>
@@ -272,11 +280,20 @@
                             </button>
                         </div>
                     </div>
-                    <div id="terminal-output-body" class="flex-1 p-3 overflow-y-auto font-mono text-[11px] leading-5 text-slate-300 bg-[#060910] space-y-1 select-text">
+                    <div id="terminal-output-body" class="flex-1 p-3 overflow-y-auto font-mono text-[11px] leading-5 text-slate-300 bg-[#060910] space-y-0 select-text">
                         <div class="text-slate-500 flex items-center gap-2">
-                            <span class="text-emerald-400 font-bold">➜</span>
-                            <span>Magentic Kernel Console initialized. Click "Run Code" or execute snippets in Chatbot to run Python, PHP, or Node.js scripts.</span>
+                            <span class="text-cyan-400 font-bold">PS></span>
+                            <span>Windows PowerShell — type commands below. Supports <span class="text-emerald-400">python</span>, <span class="text-indigo-400">php</span>, <span class="text-yellow-400">node</span>, <span class="text-slate-300">dir</span>, <span class="text-slate-300">cd</span>, and all PowerShell commands.</span>
                         </div>
+                    </div>
+                    <div id="terminal-input-bar" class="shrink-0 bg-[#0a0f1a] border-t border-slate-800/70 px-3 py-1.5 flex items-center gap-2 font-mono text-[11px]">
+                        <span id="terminal-prompt-cwd" class="text-cyan-400 font-bold whitespace-nowrap select-none">PS ~></span>
+                        <input  id="terminal-input"
+                                type="text"
+                                class="flex-1 bg-transparent text-slate-200 outline-none border-none placeholder-slate-600 caret-cyan-400 font-mono text-[11px]"
+                                placeholder="Type command here... (e.g. python script.py, dir, cd app)"
+                                autocomplete="off"
+                                spellcheck="false" />
                     </div>
                 </div>
             </div>
@@ -918,32 +935,157 @@
             const terminalToggleIcon = document.getElementById('terminal-toggle-icon');
             const terminalKernelBadge = document.getElementById('terminal-kernel-badge');
             const terminalExecTime = document.getElementById('terminal-exec-time');
+            const terminalInput = document.getElementById('terminal-input');
+            const terminalPromptCwd = document.getElementById('terminal-prompt-cwd');
+            const terminalTabShell = document.getElementById('terminal-tab-shell');
+            const terminalTabKernel = document.getElementById('terminal-tab-kernel');
+            const terminalInputBar = document.getElementById('terminal-input-bar');
 
             let isTerminalMinimized = false;
+            let activeTerminalTab = 'shell';
+            let terminalCwd = '';
+            let terminalCommandHistory = [];
+            let terminalHistoryIndex = -1;
+            let isTerminalExecuting = false;
+            let shellOutputCache = '';
+            let kernelOutputCache = '';
+
             btnToggleTerminal.addEventListener('click', () => {
                 isTerminalMinimized = !isTerminalMinimized;
                 if (isTerminalMinimized) {
                     terminalDrawer.style.height = '32px';
                     terminalToggleIcon.className = 'fa-solid fa-chevron-up text-[10px]';
                 } else {
-                    terminalDrawer.style.height = '176px';
+                    terminalDrawer.style.height = '220px';
                     terminalToggleIcon.className = 'fa-solid fa-chevron-down text-[10px]';
                 }
             });
 
+            function getShellWelcome() {
+                return `<div class="text-slate-500 flex items-center gap-2">
+                    <span class="text-cyan-400 font-bold">PS></span>
+                    <span>Windows PowerShell — type commands below.</span>
+                </div>`;
+            }
+            function getKernelWelcome() {
+                return `<div class="text-slate-500 flex items-center gap-2">
+                    <span class="text-emerald-400 font-bold">➜</span>
+                    <span>Magentic Kernel Console initialized. Click "Run Code" to execute code.</span>
+                </div>`;
+            }
+
+            function switchTerminalTab(tab) {
+                if (activeTerminalTab === tab) return;
+                if (activeTerminalTab === 'shell') shellOutputCache = terminalOutputBody.innerHTML;
+                else kernelOutputCache = terminalOutputBody.innerHTML;
+
+                activeTerminalTab = tab;
+                if (tab === 'shell') {
+                    terminalTabShell.className = 'terminal-tab px-3 py-1 rounded-t flex items-center gap-1.5 text-slate-200 font-semibold bg-[#080c14] border border-slate-700 border-b-0 -mb-px relative z-10 transition';
+                    terminalTabKernel.className = 'terminal-tab px-3 py-1 rounded-t flex items-center gap-1.5 text-slate-500 hover:text-slate-300 bg-transparent border border-transparent transition';
+                    terminalOutputBody.innerHTML = shellOutputCache || getShellWelcome();
+                    terminalInputBar.style.display = 'flex';
+                    terminalInput.focus();
+                } else {
+                    terminalTabKernel.className = 'terminal-tab px-3 py-1 rounded-t flex items-center gap-1.5 text-slate-200 font-semibold bg-[#080c14] border border-slate-700 border-b-0 -mb-px relative z-10 transition';
+                    terminalTabShell.className = 'terminal-tab px-3 py-1 rounded-t flex items-center gap-1.5 text-slate-500 hover:text-slate-300 bg-transparent border border-transparent transition';
+                    terminalOutputBody.innerHTML = kernelOutputCache || getKernelWelcome();
+                    terminalInputBar.style.display = 'none';
+                }
+                terminalOutputBody.scrollTop = terminalOutputBody.scrollHeight;
+            }
+
+            terminalTabShell.addEventListener('click', () => switchTerminalTab('shell'));
+            terminalTabKernel.addEventListener('click', () => switchTerminalTab('kernel'));
+
+            function appendToTerminalShell(html) {
+                const el = document.createElement('div');
+                el.innerHTML = html;
+                terminalOutputBody.appendChild(el);
+                terminalOutputBody.scrollTop = terminalOutputBody.scrollHeight;
+                shellOutputCache = terminalOutputBody.innerHTML;
+            }
+
+            function updateTerminalPrompt() {
+                terminalPromptCwd.textContent = terminalCwd ? `PS ~/${terminalCwd}>` : 'PS ~>';
+            }
+
+            async function executeTerminalCommand(command) {
+                if (!command.trim() || isTerminalExecuting) return;
+                isTerminalExecuting = true;
+
+                if (!terminalCommandHistory.length || terminalCommandHistory[terminalCommandHistory.length - 1] !== command) {
+                    terminalCommandHistory.push(command);
+                }
+                terminalHistoryIndex = terminalCommandHistory.length;
+
+                const cwdLabel = terminalCwd ? `~/${terminalCwd}` : '~';
+                appendToTerminalShell(`<div class="flex items-start gap-2 mt-1">
+                    <span class="text-cyan-400 font-bold shrink-0">PS ${escapeHtml(cwdLabel)}></span>
+                    <span class="text-slate-100">${escapeHtml(command)}</span>
+                </div>`);
+
+                if (['cls', 'clear'].includes(command.trim().toLowerCase())) {
+                    terminalOutputBody.innerHTML = getShellWelcome();
+                    shellOutputCache = terminalOutputBody.innerHTML;
+                    isTerminalExecuting = false;
+                    terminalInput.focus();
+                    return;
+                }
+
+                try {
+                    const res = await fetch('{{ route("ide.api.terminal.execute") }}', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken },
+                        body: JSON.stringify({ command, cwd: terminalCwd })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        if (data.stdout === '__CLEAR__') {
+                            terminalOutputBody.innerHTML = getShellWelcome();
+                            shellOutputCache = terminalOutputBody.innerHTML;
+                            isTerminalExecuting = false;
+                            terminalInput.focus();
+                            return;
+                        }
+                        if (data.cwd !== undefined) { terminalCwd = data.cwd || ''; updateTerminalPrompt(); }
+                        if (data.stdout && data.stdout.trim()) appendToTerminalShell(`<pre class="text-slate-300 whitespace-pre-wrap leading-5 ml-0">${escapeHtml(data.stdout)}</pre>`);
+                        if (data.stderr && data.stderr.trim()) appendToTerminalShell(`<pre class="text-amber-400 whitespace-pre-wrap leading-5 ml-0">${escapeHtml(data.stderr)}</pre>`);
+                        if (data.exitCode !== 0) appendToTerminalShell(`<div class="text-[10px] text-red-400 mt-0.5">Exit code: ${data.exitCode} (${data.executionTimeMs}ms)</div>`);
+                    } else {
+                        appendToTerminalShell(`<div class="text-red-400">${escapeHtml(data.error || 'Command execution failed.')}</div>`);
+                    }
+                } catch (err) {
+                    appendToTerminalShell(`<div class="text-red-400">Network error — could not reach server.</div>`);
+                }
+                isTerminalExecuting = false;
+                terminalInput.focus();
+            }
+
+            terminalInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { e.preventDefault(); const cmd = terminalInput.value; terminalInput.value = ''; executeTerminalCommand(cmd); }
+                if (e.key === 'ArrowUp') { e.preventDefault(); if (terminalCommandHistory.length && terminalHistoryIndex > 0) { terminalHistoryIndex--; terminalInput.value = terminalCommandHistory[terminalHistoryIndex]; } }
+                if (e.key === 'ArrowDown') { e.preventDefault(); if (terminalHistoryIndex < terminalCommandHistory.length - 1) { terminalHistoryIndex++; terminalInput.value = terminalCommandHistory[terminalHistoryIndex]; } else { terminalHistoryIndex = terminalCommandHistory.length; terminalInput.value = ''; } }
+                if (e.key === 'l' && e.ctrlKey) { e.preventDefault(); terminalOutputBody.innerHTML = getShellWelcome(); shellOutputCache = terminalOutputBody.innerHTML; }
+                if (e.key === 'c' && e.ctrlKey) { e.preventDefault(); if (terminalInput.value) { const cwdLabel = terminalCwd ? `~/${terminalCwd}` : '~'; appendToTerminalShell(`<div class="flex items-start gap-2 mt-1"><span class="text-cyan-400 font-bold shrink-0">PS ${escapeHtml(cwdLabel)}></span><span class="text-slate-400">${escapeHtml(terminalInput.value)}^C</span></div>`); terminalInput.value = ''; } }
+            });
+
+            terminalOutputBody.addEventListener('click', () => { if (activeTerminalTab === 'shell' && window.getSelection().toString() === '') terminalInput.focus(); });
+
             btnClearTerminal.addEventListener('click', () => {
-                terminalOutputBody.innerHTML = `
-                    <div class="text-slate-500 flex items-center gap-2">
-                        <span class="text-emerald-400 font-bold">➜</span>
-                        <span>Console cleared. Ready for kernel execution.</span>
-                    </div>
-                `;
+                if (activeTerminalTab === 'shell') {
+                    terminalOutputBody.innerHTML = getShellWelcome();
+                    shellOutputCache = '';
+                } else {
+                    terminalOutputBody.innerHTML = getKernelWelcome();
+                    kernelOutputCache = '';
+                }
             });
 
             function openTerminalDrawer() {
                 if (isTerminalMinimized) {
                     isTerminalMinimized = false;
-                    terminalDrawer.style.height = '176px';
+                    terminalDrawer.style.height = '220px';
                     terminalToggleIcon.className = 'fa-solid fa-chevron-down text-[10px]';
                 }
             }

@@ -33,6 +33,8 @@ Route::prefix('ide')->name('ide.')->group(function () {
         Route::post('/code/run', [KernelController::class, 'run'])->name('code.run');
 
         Route::post('/agent/prompt', [ChatController::class, 'prompt'])->name('agent.prompt');
+
+        Route::post('/terminal/execute', [\App\Http\Controllers\Api\AgentIde\TerminalController::class, 'execute'])->name('terminal.execute');
     });
 });
 
