@@ -21,7 +21,7 @@ class TerminalController extends Controller
     public function execute(Request $request): JsonResponse
     {
         $command = $request->input('command', '');
-        $cwd     = $request->input('cwd', '');
+        $cwd     = $request->input('cwd') ?? '';
 
         if (empty(trim($command))) {
             return response()->json(['success' => false, 'error' => 'No command provided'], 400);

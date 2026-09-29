@@ -44,3 +44,4 @@ composer run dev
 `v0.2.0` connect to ollama cloud \
 `v0.2.1` modularize file controller \
 `v0.3.0` add terminal feature, bug exist in terminal \
+`v0.3.1` fix terminal bug \
