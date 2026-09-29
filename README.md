@@ -39,9 +39,12 @@ composer run dev
 - `/dashboard/mahasiswa/{nrp 10 digit}` student profile page but using dashboard prefix <br>
 - `/dashboard/` home page but using dashboard prefix <br>
 
-`v0.0.0` base project Agung pbkk-tugas-2 \
-`v0.1.0` connect to gemini \
-`v0.2.0` connect to ollama cloud \
-`v0.2.1` modularize file controller \
-`v0.3.0` add terminal feature, bug exist in terminal \
-`v0.3.1` fix terminal bug \
+version pre-release
+- `v0.0.0` base project Agung pbkk-tugas-2 
+- `v0.1.0` connect to gemini 
+- `v0.2.0` connect to ollama cloud 
+- `v0.2.1` modularize file controller 
+- `v0.3.0` add terminal feature, bug exist in terminal 
+- `v0.3.1` fix terminal bug 
+- `v0.4.0` change workspace directory, automatically write file to text editor after prompt and UI accept/reject changes and view diff; bug input terminal when running python with function input()
+
