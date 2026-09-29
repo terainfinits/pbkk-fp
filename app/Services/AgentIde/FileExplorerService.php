@@ -9,8 +9,7 @@ use Illuminate\Support\Facades\File;
  * Centralising this here means every path-safety check (staying inside
  * base_path()) lives in one place instead of being repeated per-endpoint.
  */
-class FileExplorerService
-{
+class FileExplorerService {
     /** Directories/files that are never shown or touched by the IDE. */
     private const IGNORED = [
         '.git', 'vendor', 'node_modules', '.gemini', 'storage/framework',
@@ -19,17 +18,20 @@ class FileExplorerService
 
     private const MAX_TREE_DEPTH = 5;
 
-    public function basePath(): string
-    {
-        return base_path();
+    public function basePath(): string {
+        $path = base_path('folder-generated');
+
+        if (!is_dir($path)) {
+            mkdir($path, 0755, true);
+        }
+        return $path;
     }
 
     /**
      * Resolve a user-supplied relative path to an absolute path that is
      * guaranteed to live inside base_path(). Returns null if it doesn't.
      */
-    public function resolveExistingPath(string $relativePath): ?string
-    {
+    public function resolveExistingPath(string $relativePath): ?string {
         $basePath = $this->basePath();
         $fullPath = realpath($basePath . DIRECTORY_SEPARATOR . $relativePath);
 
@@ -44,16 +46,14 @@ class FileExplorerService
      * Build a safe absolute path for a file/dir that does not need to
      * exist yet (create operations), stripping any directory traversal.
      */
-    public function safeNewPath(string $relativePath): array
-    {
+    public function safeNewPath(string $relativePath): array {
         $cleanRelPath = ltrim(str_replace(['../', '..\\'], '', $relativePath), '/\\');
         $fullPath = $this->basePath() . DIRECTORY_SEPARATOR . $cleanRelPath;
 
         return [$cleanRelPath, $fullPath];
     }
 
-    public function scanTree(string $targetDir = ''): array
-    {
+    public function scanTree(string $targetDir = ''): array {
         $basePath = $this->basePath();
         $fullPath = empty($targetDir)
             ? $basePath
@@ -70,8 +70,7 @@ class FileExplorerService
         ];
     }
 
-    private function scanDirectory(string $dir, string $basePath, int $depth = 0): array
-    {
+    private function scanDirectory(string $dir, string $basePath, int $depth = 0): array {
         if ($depth > self::MAX_TREE_DEPTH || !is_dir($dir)) {
             return [];
         }
@@ -119,8 +118,7 @@ class FileExplorerService
         return $items;
     }
 
-    private function isIgnored(string $file, string $relativeNormalized): bool
-    {
+    private function isIgnored(string $file, string $relativeNormalized): bool {
         foreach (self::IGNORED as $pattern) {
             if ($file === $pattern || str_contains($relativeNormalized, $pattern)) {
                 return true;
@@ -130,8 +128,7 @@ class FileExplorerService
         return false;
     }
 
-    public function readFile(string $relativePath): ?array
-    {
+    public function readFile(string $relativePath): ?array {
         $fullPath = $this->resolveExistingPath($relativePath);
         if (!$fullPath || !is_file($fullPath)) {
             return null;
@@ -149,8 +146,7 @@ class FileExplorerService
         ];
     }
 
-    public function saveFile(string $relativePath, string $content): array
-    {
+    public function saveFile(string $relativePath, string $content): array {
         [$cleanRelPath, $fullPath] = $this->safeNewPath($relativePath);
 
         $dir = dirname($fullPath);
@@ -169,8 +165,7 @@ class FileExplorerService
     /**
      * @return array{ok: bool, path?: string, error?: string}
      */
-    public function createItem(string $relativePath, string $type, string $initialContent = ''): array
-    {
+    public function createItem(string $relativePath, string $type, string $initialContent = ''): array {
         [$cleanRelPath, $fullPath] = $this->safeNewPath($relativePath);
 
         if (file_exists($fullPath)) {
@@ -190,8 +185,7 @@ class FileExplorerService
         return ['ok' => true, 'path' => str_replace('\\', '/', $cleanRelPath)];
     }
 
-    public function deleteItem(string $relativePath): ?string
-    {
+    public function deleteItem(string $relativePath): ?string {
         $fullPath = $this->resolveExistingPath($relativePath);
         if (!$fullPath) {
             return null;

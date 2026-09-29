@@ -115,6 +115,7 @@ export async function openFile(filePath) {
                     content: data.content,
                     extension: data.extension,
                     isDirty: false,
+                    isNew: false,
                 };
                 state.openTabs.push(tab);
             } else {
@@ -128,6 +129,55 @@ export async function openFile(filePath) {
     }
 
     switchTab(tab.path);
+    return tab;
+}
+
+export async function openOrCreateTab(filePath, initialContent = '') {
+    const cleanPath = (filePath || '').replace(/\\/g, '/').replace(/^\/+/, '');
+    let tab = state.openTabs.find((t) => t.path === cleanPath);
+    if (!tab) {
+        try {
+            const data = await api.readFile(cleanPath);
+            if (data.success) {
+                tab = {
+                    path: data.path,
+                    filename: data.filename,
+                    content: data.content,
+                    extension: data.extension,
+                    isDirty: false,
+                    isNew: false,
+                };
+                state.openTabs.push(tab);
+            } else {
+                const filename = cleanPath.split('/').pop() || cleanPath;
+                const ext = filename.includes('.') ? filename.split('.').pop() : 'txt';
+                tab = {
+                    path: cleanPath,
+                    filename: filename,
+                    content: initialContent,
+                    extension: ext,
+                    isDirty: true,
+                    isNew: true,
+                };
+                state.openTabs.push(tab);
+            }
+        } catch (err) {
+            const filename = cleanPath.split('/').pop() || cleanPath;
+            const ext = filename.includes('.') ? filename.split('.').pop() : 'txt';
+            tab = {
+                path: cleanPath,
+                filename: filename,
+                content: initialContent,
+                extension: ext,
+                isDirty: true,
+                isNew: true,
+            };
+            state.openTabs.push(tab);
+        }
+    }
+
+    switchTab(tab.path);
+    return tab;
 }
 
 export function renderTabs() {
@@ -135,12 +185,15 @@ export function renderTabs() {
     state.openTabs.forEach((tab) => {
         const tabEl = document.createElement('div');
         const isActive = tab.path === state.activeTabPath;
+        const isPendingThis = state.pendingReview && state.pendingReview.targetPath === tab.path;
+
         tabEl.className = `flex items-center gap-2 px-3 py-1.5 rounded-t text-xs font-medium cursor-pointer border-t-2 transition ${isActive ? 'bg-[#0c101c] text-indigo-300 border-indigo-500' : 'bg-[#0d1322] text-slate-400 border-transparent hover:bg-slate-800'}`;
 
         tabEl.innerHTML = `
             ${getFileIcon(tab.extension, tab.filename)}
             <span class="truncate max-w-[120px]">${tab.filename}</span>
-            <span class="w-1.5 h-1.5 rounded-full ${tab.isDirty ? 'bg-amber-400' : 'hidden'}"></span>
+            ${isPendingThis ? '<span class="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 font-mono text-[9px] font-semibold border border-purple-500/30">AI Draft</span>' : ''}
+            <span class="w-1.5 h-1.5 rounded-full ${tab.isDirty && !isPendingThis ? 'bg-amber-400' : 'hidden'}"></span>
             <button class="close-tab hover:text-red-400 ml-1 text-[11px]">&times;</button>
         `;
 
@@ -175,6 +228,16 @@ export function switchTab(path) {
         dom.chatActiveFile.textContent = 'None';
         dom.unsavedIndicator.classList.add('hidden');
     }
+
+    if (dom.editorAgentReviewBar) {
+        if (state.pendingReview && state.pendingReview.targetPath === path) {
+            dom.reviewBarFilepath.textContent = path;
+            dom.editorAgentReviewBar.classList.remove('hidden');
+        } else {
+            dom.editorAgentReviewBar.classList.add('hidden');
+        }
+    }
+
     renderTabs();
 }
 

@@ -8,6 +8,7 @@ import { escapeHtml, showNotification } from './utils.js';
 import { getActiveApiKey } from './settings.js';
 import { getActiveTab, fetchTree, openFile } from './fileTree.js';
 import { renderBotResponse, renderBotError } from './chatResponse.js';
+import { stageAgentChangesInEditor } from './editor.js';
 
 function appendUserMessage(prompt) {
     const userMsgDiv = document.createElement('div');
@@ -108,9 +109,15 @@ export async function executeAgentPrompt() {
         if (data.success) {
             state.lastGeneratedCode = data.code;
             state.lastGeneratedTarget = data.targetPath;
-            renderBotResponse(contentEl, data, { writeCodeDirectly });
+            renderBotResponse(contentEl, data);
             dom.agentPromptInput.value = '';
-            showNotification('Agentic Chatbot response completed.');
+
+            // Automatically write generated code to text editor & stage for Accept/Reject
+            if (data.code && data.targetPath) {
+                await stageAgentChangesInEditor(data.targetPath, data.code);
+            } else {
+                showNotification('Agentic Chatbot response completed.');
+            }
         } else {
             renderBotError(contentEl, data.error);
         }

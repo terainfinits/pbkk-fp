@@ -34,7 +34,16 @@ export const dom = {
     diffDrawer: document.getElementById('diff-drawer'),
     diffCodeView: document.getElementById('diff-code-view'),
     btnApplyDiff: document.getElementById('btn-apply-diff'),
+    btnRejectDiff: document.getElementById('btn-reject-diff'),
     btnCloseDiff: document.getElementById('btn-close-diff'),
+
+    // In-editor Agent Review Bar
+    editorAgentReviewBar: document.getElementById('editor-agent-review-bar'),
+    reviewBarFilepath: document.getElementById('review-bar-filepath'),
+    btnEditorAccept: document.getElementById('btn-editor-accept'),
+    btnEditorReject: document.getElementById('btn-editor-reject'),
+    btnEditorDiff: document.getElementById('btn-editor-diff'),
+    btnEditorDiffText: document.getElementById('btn-editor-diff-text'),
 
     terminalDrawer: document.getElementById('terminal-drawer'),
     terminalOutputBody: document.getElementById('terminal-output-body'),

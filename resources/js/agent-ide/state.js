@@ -40,11 +40,12 @@ export const providerModels = {
 };
 
 export const state = {
-    openTabs: [], // { path, filename, content, isDirty, extension }
+    openTabs: [], // { path, filename, content, isDirty, extension, isNew }
     activeTabPath: null,
     targetDirectory: '',
     projectTree: [],
     lastGeneratedCode: '',
     lastGeneratedTarget: '',
     createModalType: 'file', // 'file' | 'directory'
+    pendingReview: null, // { targetPath, originalCode, newCode, isNewTab }
 };

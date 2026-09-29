@@ -11,7 +11,7 @@ export function showDiffView(targetPath, newCode) {
     dom.diffCodeView.textContent = `--- Original (${targetPath})\n+++ Proposed AI Changes\n\n` + newCode;
 }
 
-export function initModals({ fetchTree, openFile, writeCodeDirectly }) {
+export function initModals({ fetchTree, openFile }) {
     // Create modal
     const createModal = document.getElementById('create-modal');
     const createModalTitle = document.getElementById('create-modal-title');
@@ -55,18 +55,6 @@ export function initModals({ fetchTree, openFile, writeCodeDirectly }) {
             }
         } catch (err) {
             showNotification('Error creating item', true);
-        }
-    });
-
-    // Diff drawer
-    dom.btnCloseDiff.addEventListener('click', () => {
-        dom.diffDrawer.classList.add('hidden');
-    });
-
-    dom.btnApplyDiff.addEventListener('click', async () => {
-        if (state.lastGeneratedTarget && state.lastGeneratedCode) {
-            await writeCodeDirectly(state.lastGeneratedTarget, state.lastGeneratedCode);
-            dom.diffDrawer.classList.add('hidden');
         }
     });
 }

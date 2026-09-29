@@ -7,24 +7,21 @@ use App\Services\AgentIde\FileExplorerService;
 use App\Services\AgentIde\KernelRunnerService;
 use Illuminate\Http\Request;
 
-class KernelController extends Controller
-{
+class KernelController extends Controller {
     public function __construct(
         private KernelRunnerService $kernels,
         private FileExplorerService $files,
     ) {
     }
 
-    public function index()
-    {
+    public function index() {
         return response()->json([
             'success' => true,
             'kernels' => $this->kernels->detectKernels(),
         ]);
     }
 
-    public function run(Request $request)
-    {
+    public function run(Request $request) {
         $result = $this->kernels->run(
             $request->input('code', ''),
             strtolower($request->input('language', '')),

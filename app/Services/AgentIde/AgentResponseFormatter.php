@@ -18,7 +18,7 @@ class AgentResponseFormatter
             ['title' => 'Analyzing Requirements', 'detail' => "Parsed prompt using {$provider} ({$model}) and evaluated target context."],
             ['title' => 'Synthesizing Architecture', 'detail' => 'Crafted clean, optimized code logic following modern coding standards.'],
             ['title' => 'Code Generation', 'detail' => "Generated code artifact targeted for `{$suggestedPath}`."],
-            ['title' => 'Verification & Diffs Ready', 'detail' => 'Validated syntax and structured file patch ready for one-click apply.'],
+            ['title' => 'Written to Editor (Pending Review)', 'detail' => 'Code automatically written to the text editor. Review changes and click Accept or Reject in the editor.'],
         ];
 
         return [

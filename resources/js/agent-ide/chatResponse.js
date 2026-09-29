@@ -55,21 +55,20 @@ function buildCodeCardHtml(data) {
             </div>
             <pre class="max-h-48 overflow-y-auto p-3 font-mono text-[11px] text-slate-200 leading-5 bg-[#090d16]"><code>${escapeHtml(data.code)}</code></pre>
 
-            <div class="p-2 bg-[#0c101c] border-t border-slate-800/80 flex flex-wrap items-center gap-2">
-                <button class="btn-chat-run-kernel px-3 py-1.5 rounded bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-[11px] flex items-center gap-1.5 shadow transition">
-                    <i class="fa-solid fa-play"></i>
-                    <span>Run Code in Kernel</span>
-                </button>
-                <button class="btn-chat-write-file px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-[11px] flex items-center gap-1.5 shadow transition">
-                    <i class="fa-solid fa-bolt"></i>
-                    <span>Apply to File</span>
-                </button>
-                <button class="btn-chat-diff px-2.5 py-1.5 rounded bg-purple-600/20 text-purple-300 border border-purple-500/30 hover:bg-purple-600/30 font-medium text-[11px] transition">
-                    <i class="fa-solid fa-code-compare mr-1"></i> Diff
-                </button>
-                <button class="btn-chat-copy px-2.5 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] transition">
-                    <i class="fa-regular fa-copy"></i>
-                </button>
+            <div class="p-2 bg-[#0c101c] border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2">
+                <div class="flex items-center gap-1.5">
+                    <button class="btn-chat-run-kernel px-2.5 py-1.5 rounded bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-[11px] flex items-center gap-1 shadow transition">
+                        <i class="fa-solid fa-play text-[10px]"></i>
+                        <span>Run in Kernel</span>
+                    </button>
+                    <button class="btn-chat-copy px-2 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] transition" title="Copy Code">
+                        <i class="fa-regular fa-copy"></i>
+                    </button>
+                </div>
+                <div class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 text-[10px] font-mono">
+                    <i class="fa-solid fa-file-pen text-indigo-400"></i>
+                    <span>Written to editor</span>
+                </div>
             </div>
 
             <div class="chat-live-console-container p-2"></div>
@@ -81,7 +80,7 @@ function buildCodeCardHtml(data) {
  * Render a successful agent response into the bot message's content
  * element and wire up its action buttons.
  */
-export function renderBotResponse(contentEl, data, { writeCodeDirectly }) {
+export function renderBotResponse(contentEl, data) {
     contentEl.innerHTML = buildStepsHtml(data.steps) + buildMarkdownHtml(data) + buildCodeCardHtml(data);
 
     highlightMarkdownCode(contentEl);
@@ -91,20 +90,6 @@ export function renderBotResponse(contentEl, data, { writeCodeDirectly }) {
     if (runKernelBtn) {
         runKernelBtn.addEventListener('click', async () => {
             await runCodeInKernel(data.code, data.language, data.targetPath, liveConsole);
-        });
-    }
-
-    const writeBtn = contentEl.querySelector('.btn-chat-write-file');
-    if (writeBtn) {
-        writeBtn.addEventListener('click', async () => {
-            await writeCodeDirectly(data.targetPath, data.code);
-        });
-    }
-
-    const diffBtn = contentEl.querySelector('.btn-chat-diff');
-    if (diffBtn) {
-        diffBtn.addEventListener('click', () => {
-            showDiffView(data.targetPath, data.code);
         });
     }
 

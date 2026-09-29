@@ -7,11 +7,11 @@ import { state } from './state.js';
 import { showNotification } from './utils.js';
 import { configureMarkdown } from './markdown.js';
 import { initSettings } from './settings.js';
-import { initFileTree, fetchTree, openFile, renderTabs } from './fileTree.js';
+import { initFileTree, fetchTree, openFile, renderTabs, closeTab, openOrCreateTab } from './fileTree.js';
 import { initEditor } from './editor.js';
 import { initTerminal, fetchKernels, runCodeInKernel } from './terminal.js';
 import { initModals } from './modals.js';
-import { initChat, writeCodeDirectly } from './chat.js';
+import { initChat } from './chat.js';
 
 function runActiveCode() {
     const activeTab = state.openTabs.find((t) => t.path === state.activeTabPath);
@@ -30,9 +30,9 @@ function runActiveCode() {
 configureMarkdown();
 initSettings();
 initFileTree();
-initEditor({ runActiveCode, renderTabs });
+initEditor({ runActiveCode, renderTabs, fetchTree, closeTab, openOrCreateTab });
 initTerminal();
-initModals({ fetchTree, openFile, writeCodeDirectly });
+initModals({ fetchTree, openFile });
 initChat();
 
 fetchTree();

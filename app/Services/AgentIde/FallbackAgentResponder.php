@@ -20,7 +20,7 @@ class FallbackAgentResponder
             ['title' => 'Reading & Context Extraction', 'detail' => 'Inspected target directory ' . ($targetDirectory ?: 'workspace root') . ' and analyzed prompt intent.'],
             ['title' => 'Multi-Model Agent Synthesis', 'detail' => "Utilized {$provider} ({$model}) architecture rules to formulate clean solution."],
             ['title' => 'Writing Code Artifact', 'detail' => "Generated code targeted for `{$targetPath}`."],
-            ['title' => 'Ready for Apply', 'detail' => "Diff and file creation action prepared. You can click 'Apply Code' to save directly."],
+            ['title' => 'Written to Editor (Pending Review)', 'detail' => 'Code automatically written to the text editor. Review changes and click Accept or Reject in the editor.'],
         ];
 
         $rawResponse = "### [FILE: {$targetPath}]\n\n```{$language}\n{$code}\n```\n\n**Agent Summary:**\n{$explanation}\n\n*Executed using {$provider} ({$model}) engine.*"

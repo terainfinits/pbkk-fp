@@ -23,6 +23,43 @@
         </div>
     </div>
 
+    {{-- Agent Changes Pending Review Bar --}}
+    <div id="editor-agent-review-bar" class="hidden bg-gradient-to-r from-purple-950/90 via-indigo-950/90 to-slate-900 border-b border-indigo-500/40 px-4 py-2 flex items-center justify-between z-20 shrink-0 shadow-lg animate-fadeIn">
+        <div class="flex items-center gap-3 min-w-0">
+            <span class="flex h-2.5 w-2.5 relative">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+            </span>
+            <div class="min-w-0">
+                <div class="text-xs font-semibold text-slate-100 flex items-center gap-2 truncate">
+                    <i class="fa-solid fa-wand-magic-sparkles text-indigo-400"></i>
+                    <span>Agent wrote changes to</span>
+                    <span id="review-bar-filepath" class="font-mono text-indigo-300 bg-indigo-950/80 px-2 py-0.5 rounded border border-indigo-500/30 text-[11px]"></span>
+                    <span class="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold">Unsaved AI Draft</span>
+                </div>
+                <div class="text-[11px] text-slate-400 flex items-center gap-2 mt-0.5">
+                    <span>Review changes below. Click <strong>Accept</strong> to save or <strong>Reject</strong> to revert.</span>
+                    <span class="text-slate-600 hidden sm:inline">•</span>
+                    <span class="font-mono text-[10px] text-slate-500 hidden sm:inline">Shortcuts: Ctrl+Enter (Accept) | Esc (Reject)</span>
+                </div>
+            </div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+            <button id="btn-editor-diff" class="px-2.5 py-1.5 rounded bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 font-medium text-xs flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-code-compare"></i>
+                <span id="btn-editor-diff-text">View Diff</span>
+            </button>
+            <button id="btn-editor-reject" class="px-3 py-1.5 rounded bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/40 font-semibold text-xs flex items-center gap-1.5 shadow-sm transition">
+                <i class="fa-solid fa-xmark"></i>
+                <span>Reject</span>
+            </button>
+            <button id="btn-editor-accept" class="px-3.5 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-600/20 transition">
+                <i class="fa-solid fa-check"></i>
+                <span>Accept Changes</span>
+            </button>
+        </div>
+    </div>
+
     <div class="flex-1 relative overflow-hidden flex flex-col bg-[#0c101c]">
         <div class="flex-1 relative overflow-hidden flex">
             <div id="line-numbers" class="w-12 py-3 bg-[#0a0e1a] text-right pr-3 text-slate-600 font-mono text-xs select-none border-r border-slate-800/60 overflow-hidden leading-6">
@@ -39,8 +76,11 @@
                         <i class="fa-solid fa-code-compare"></i> Proposed AI Diff Patch
                     </span>
                     <div class="flex items-center gap-2">
-                        <button id="btn-apply-diff" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-semibold shadow transition">
-                            <i class="fa-solid fa-check mr-1"></i> Apply Changes to File
+                        <button id="btn-apply-diff" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-semibold shadow transition flex items-center gap-1">
+                            <i class="fa-solid fa-check"></i> Accept Changes
+                        </button>
+                        <button id="btn-reject-diff" class="px-3 py-1 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/40 rounded text-xs font-semibold transition flex items-center gap-1">
+                            <i class="fa-solid fa-xmark"></i> Reject Changes
                         </button>
                         <button id="btn-close-diff" class="px-2 py-1 text-slate-400 hover:text-white text-xs">
                             <i class="fa-solid fa-xmark"></i>
@@ -48,7 +88,7 @@
                     </div>
                 </div>
                 <div class="flex-1 p-3 overflow-auto font-mono text-xs bg-slate-950/80">
-                    <pre id="diff-code-view" class="text-slate-300"></pre>
+                    <pre id="diff-code-view" class="text-slate-300 font-mono"></pre>
                 </div>
             </div>
         </div>
