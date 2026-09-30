@@ -8,17 +8,18 @@ use App\Http\Controllers\CalculatorController;
 use App\Http\Controllers\PageController;
 use Illuminate\Support\Facades\Route;
 
+/* route konek dg class & method di file controller */
 Route::get('/', [PageController::class, 'index'])->name('home');
+
+/* route konek jg dg url*/
 Route::get('/agent/{tema?}', [PageController::class, 'agent'])->name('agent.idea');
 Route::get('/mahasiswa/{nrp}', [PageController::class, 'mahasiswaDetail'])
     ->where('nrp', '[0-9]{10}')
     ->name('mahasiswa.detail');
 Route::get('/hitung-ipk/{ip1?}/{ip2?}', [CalculatorController::class, 'calculateIpk'])->name('calculator.ipk');
 
-/* AGENTIC IDE ROUTES 
-prefix() AWALAN SETELAH DOMAIN DAN SLASH BUAT GROUPING ROUTES
-CLASS AgentIdeController, NAMA METHODNYA index()
-name() NAMA FILE?? */
+
+/* grouping routes url formatnya "domainnya/ide/sesuatu" */
 Route::prefix('ide')->name('ide.')->group(function () {
     Route::get('/', [AgentIdeController::class, 'index'])->name('index'); 
 
@@ -45,6 +46,7 @@ Route::prefix('dashboard')->name('dashboard.')->group(function () {
         ->name('mahasiswa.detail');
 });
 
+/* fallback kalo ngga ada yg sesuai di route atas*/
 Route::fallback(function () {
     return view('errors.404');
 });
