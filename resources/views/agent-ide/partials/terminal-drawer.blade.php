@@ -1,4 +1,14 @@
-{{-- Bottom terminal drawer — interactive PowerShell-style shell + kernel console. --}}
+@php
+    $isWindows = PHP_OS_FAMILY === 'Windows';
+    $promptSign = $isWindows ? 'PS>' : '$';
+    $promptCwd  = $isWindows ? 'PS ~>' : '~ $';
+    $examples   = $isWindows ? 'python script.py, dir, cd app' : 'python3 script.py, ls, cd app';
+    $shellDesc  = $isWindows 
+        ? 'Windows PowerShell — type commands below. Supports python, php, node, dir, cd, and all PowerShell commands.' 
+        : 'Unix Shell — type commands below. Supports python3, php, node, ls, cd, and standard shell commands.';
+@endphp
+
+{{-- Bottom terminal drawer — interactive shell + kernel console. --}}
 <div id="terminal-drawer" class="bg-[#080c14] border-t border-slate-800 flex flex-col shrink-0 transition-all duration-200" style="height: 220px;">
 
     {{-- ── Tab bar ── --}}
@@ -7,7 +17,7 @@
             {{-- Shell tab --}}
             <button id="terminal-tab-shell"
                     class="terminal-tab px-3 py-1 rounded-t flex items-center gap-1.5 text-slate-200 font-semibold bg-[#080c14] border border-slate-700 border-b-0 -mb-px relative z-10 transition"
-                    title="Interactive PowerShell">
+                    title="Terminal">
                 <i class="fa-solid fa-terminal text-cyan-400 text-[10px]"></i>
                 <span>Terminal</span>
             </button>
@@ -37,18 +47,18 @@
     {{-- ── Output body (shared between shell & kernel) ── --}}
     <div id="terminal-output-body" class="flex-1 p-3 overflow-y-auto font-mono text-[11px] leading-5 text-slate-300 bg-[#060910] space-y-0 select-text">
         <div class="text-slate-500 flex items-center gap-2">
-            <span class="text-cyan-400 font-bold">PS></span>
-            <span>Windows PowerShell — type commands below. Supports <span class="text-emerald-400">python</span>, <span class="text-indigo-400">php</span>, <span class="text-yellow-400">node</span>, <span class="text-slate-300">dir</span>, <span class="text-slate-300">cd</span>, and all PowerShell commands.</span>
+            <span class="text-cyan-400 font-bold">{{ $promptSign }}</span>
+            <span>{!! $shellDesc !!}</span>
         </div>
     </div>
 
     {{-- ── Interactive prompt input ── --}}
     <div id="terminal-input-bar" class="shrink-0 bg-[#0a0f1a] border-t border-slate-800/70 px-3 py-1.5 flex items-center gap-2 font-mono text-[11px]">
-        <span id="terminal-prompt-cwd" class="text-cyan-400 font-bold whitespace-nowrap select-none">PS ~></span>
+        <span id="terminal-prompt-cwd" class="text-cyan-400 font-bold whitespace-nowrap select-none">{{ $promptCwd }}</span>
         <input  id="terminal-input"
                 type="text"
                 class="flex-1 bg-transparent text-slate-200 outline-none border-none placeholder-slate-600 caret-cyan-400 font-mono text-[11px]"
-                placeholder="Type command here... (e.g. python script.py, dir, cd app)"
+                placeholder="Type command here... (e.g. {{ $examples }})"
                 autocomplete="off"
                 spellcheck="false" />
     </div>

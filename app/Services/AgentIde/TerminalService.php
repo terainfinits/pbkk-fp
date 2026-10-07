@@ -41,6 +41,7 @@ class TerminalService {
         if (preg_match('/^cd\s*(.*)/i', $command, $m)) {
             $target = trim($m[1]);
             $newCwd = $this->resolveNewCwd($absoluteCwd, $target);
+
             return $this->result(true, '', '', 0, 0.0, $this->toRelativeCwd($newCwd));
         }
 
@@ -50,13 +51,38 @@ class TerminalService {
         }
 
         $startTime = microtime(true);
+        $isWindows = (PHP_OS_FAMILY === 'Windows');
 
-        // Build PowerShell command: set location first, then execute.
-        $escapedCwd   = str_replace("'", "''", $absoluteCwd);
-        $escapedCmd   = str_replace('"', '`"', $command);
+        if ($isWindows) {
+            // Build PowerShell command: set location first, then execute.
+            $escapedCwd = str_replace("'", "''", $absoluteCwd);
+            $psBlock = "Set-Location -LiteralPath '{$escapedCwd}'; {$command}";
 
-        // We wrap in a single powershell invocation
-        $psBlock = "Set-Location -LiteralPath '{$escapedCwd}'; {$command}";
+            $processCommand = [
+                'powershell',
+                '-NoProfile',
+                '-NonInteractive',
+                '-ExecutionPolicy',
+                'Bypass',
+                '-Command',
+                $psBlock,
+            ];
+        } else {
+            // Detect whether to use zsh or bash on Unix-like systems (Linux/macOS)
+            $shell = 'bash';
+            $userShell = getenv('SHELL');
+
+            if ($userShell && str_contains($userShell, 'zsh')) {
+                $shell = 'zsh';
+            } elseif (PHP_OS_FAMILY === 'Darwin') {
+                // macOS defaults to zsh
+                $shell = 'zsh';
+            } elseif (file_exists('/bin/zsh') || file_exists('/usr/bin/zsh')) {
+                $shell = 'zsh';
+            }
+
+            $processCommand = [$shell, '-c', $command];
+        }
 
         $descriptorSpec = [
             0 => ['pipe', 'r'],
@@ -68,12 +94,9 @@ class TerminalService {
             'TERM' => 'xterm-256color',
         ]);
 
-        $process = proc_open(
-            ['powershell', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', $psBlock],
-            $descriptorSpec,
-            $pipes,
-            $absoluteCwd,
-            $env
+        $process = proc_open($processCommand,
+            $descriptorSpec, $pipes,
+            $absoluteCwd, $env
         );
 
         $stdout   = '';
