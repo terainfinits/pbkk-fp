@@ -18,6 +18,8 @@
         "clsx": "^2.1.1",
         "concurrently": "^10.0.3",
         "laravel-vite-plugin": "^3.1",
+        "monaco-editor": "^0.57.0",
+        "monaco-editor-vue3": "^1.0.5",
         "tailwind-merge": "^3.2.0",
         "tailwindcss": "^4.1.1",
         "typescript": "^5.2.2",
