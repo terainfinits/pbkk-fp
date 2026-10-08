@@ -1,75 +1,87 @@
 <script setup lang="ts">
 import { computed, inject, nextTick, onMounted, ref, watch } from 'vue';
+import { CodeEditor } from 'monaco-editor-vue3';
+import * as monaco from 'monaco-editor';
 import TerminalDrawer from './TerminalDrawer.vue';
 import type { IdeApi } from '@/composables/useIdeApi';
 import type { useIdeState, OpenTab } from '@/composables/useIdeState';
 
 const { api, state } = inject<{ api: IdeApi; state: ReturnType<typeof useIdeState> }>('ide')!;
 
-const textareaRef = ref<HTMLTextAreaElement | null>(null);
-const lineNumbersRef = ref<HTMLDivElement | null>(null);
 const cursorPos = ref('Ln 1, Col 1');
 const diffOpen = ref(false);
 const diffContent = ref('');
+const code = ref('');
+const isSwitchingTab = ref(false); // Flag to prevent false "dirty" flags during switch
 
 const activeTab = computed<OpenTab | undefined>(() =>
   state.openTabs.find(t => t.path === state.activeTabPath.value)
 );
 
-const code = ref('');
+const editorLanguage = computed(() => {
+  // Get extension, lowercase it, and remove any leading dot (e.g., ".js" -> "js")
+  const ext = activeTab.value?.extension?.toLowerCase().replace(/^\./, '') || 'php';
 
-// Sync textarea with active tab
+  // Map file extensions to Monaco's official language identifiers
+  const languageMap: Record<string, string> = {
+    js: 'javascript',
+    ts: 'typescript',
+    py: 'python',
+    md: 'markdown',
+    yml: 'yaml',
+    sh: 'shell',
+    // php, html, css, json, sql already match Monaco's names
+  };
+
+  return languageMap[ext] || ext;
+});
+
+const currentTheme = ref('my-custom-dark')
+
+const handleEditorMount = () => {
+  monaco.editor.defineTheme('my-custom-dark', {
+    base: 'vs-dark',
+    inherit: true,
+    rules: [],
+    colors: {
+      'editor.background': '#0b0f1a',
+    }
+  })
+
+  // Forcefully set it if needed
+  monaco.editor.setTheme('my-custom-dark')
+}
+
+// Sync editor content whenever the active tab path changes
 watch(
   () => state.activeTabPath.value,
-  () => {
-    const t = activeTab.value;
+  (newPath) => {
+    isSwitchingTab.value = true;
+    const t = state.openTabs.find(tab => tab.path === newPath);
     code.value = t ? t.content : '';
-    nextTick(updateLineNumbers);
+    nextTick(() => {
+      isSwitchingTab.value = false;
+    });
   },
   { immediate: true }
 );
 
-watch(code, val => {
+// Sync user typing back to the active tab's content state
+watch(code, (val) => {
+  if (isSwitchingTab.value) return; // Ignore updates triggered by tab switches
   const t = activeTab.value;
-  if (t) {
+  if (t && t.content !== val) {
     t.content = val;
     if (!t.isDirty) t.isDirty = true;
-    updateLineNumbers();
   }
 });
 
 const charCount = computed(() => code.value.length);
 
-function updateLineNumbers() {
-  if (!lineNumbersRef.value) return;
-  const lines = Math.max(code.value.split('\n').length, 1);
-  lineNumbersRef.value.innerHTML = Array.from({ length: lines }, (_, i) => i + 1).join('<br>');
-}
-
-function onScroll() {
-  if (lineNumbersRef.value && textareaRef.value) {
-    lineNumbersRef.value.scrollTop = textareaRef.value.scrollTop;
+function updateCursor(e: any) {
+  if (e && e.position) {
+    cursorPos.value = `Ln ${e.position.lineNumber}, Col ${e.position.column}`;
   }
-}
-
-function onTab(e: KeyboardEvent) {
-  if (e.key !== 'Tab') return;
-  e.preventDefault();
-  const el = textareaRef.value!;
-  const start = el.selectionStart;
-  const end = el.selectionEnd;
-  code.value = code.value.substring(0, start) + '    ' + code.value.substring(end);
-  nextTick(() => {
-    el.selectionStart = el.selectionEnd = start + 4;
-  });
-}
-
-function updateCursor() {
-  const el = textareaRef.value;
-  if (!el) return;
-  const before = el.value.substring(0, el.selectionStart);
-  const lines = before.split('\n');
-  cursorPos.value = `Ln ${lines.length}, Col ${lines[lines.length - 1].length + 1}`;
 }
 
 function closeTab(path: string) {
@@ -179,24 +191,19 @@ onMounted(() => {
 
     <!-- Editor Work Area -->
     <div class="flex-1 relative overflow-hidden flex flex-col bg-[#0c101c]">
-      <div class="flex-1 relative overflow-hidden flex">
-        <div
-          ref="lineNumbersRef"
-          class="w-12 py-3 bg-[#0a0e1a] text-right pr-3 text-slate-600 font-mono text-xs select-none border-r border-slate-800/60 overflow-hidden leading-6"
-        >1</div>
-        <div class="flex-1 relative h-full overflow-hidden">
-          <textarea
-            ref="textareaRef"
-            v-model="code"
-            spellcheck="false"
-            class="editor-textarea code-font w-full h-full p-3 bg-transparent text-slate-200 text-xs leading-6 outline-none border-none overflow-auto font-mono z-10 relative"
-            placeholder="// Select a file from the explorer or ask the AI to generate code..."
-            @scroll="onScroll"
-            @keydown="onTab"
-            @keyup="updateCursor"
-            @click="updateCursor"
-          ></textarea>
-        </div>
+      <div class="flex-1 relative h-full overflow-hidden">
+        <CodeEditor
+          v-if="activeTab"
+          :key="`${activeTab.path}::${editorLanguage}`"
+          ref="editorRef"
+          v-model:value="code"
+          :language="editorLanguage"
+          :theme="currentTheme"
+          :options="{ minimap: { enabled: false } }"
+          class="h-full w-full"
+          @cursorPositionChange="updateCursor"
+                    @editorDidMount="handleEditorMount"
+        />
       </div>
 
       <!-- Terminal Drawer -->
