@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 
 interface TreeNodeItem {
   name: string;
@@ -9,10 +9,16 @@ interface TreeNodeItem {
   children?: TreeNodeItem[];
 }
 
-defineProps<{ item: TreeNodeItem; level: number }>();
+const props = defineProps<{ item: TreeNodeItem; level: number }>();
 const emit = defineEmits<{ select: [path: string]; target: [path: string] }>();
 
+// Folder expand/collapse state (local to this node)
 const open = ref(false);
+
+// A folder is only toggleable when it actually contains children
+const hasChildren = computed(
+  () => !!props.item.isDir && Array.isArray(props.item.children) && props.item.children.length > 0
+);
 
 function iconFor(ext: string, name: string) {
   const e = (ext || '').toLowerCase();
@@ -37,15 +43,25 @@ function iconFor(ext: string, name: string) {
       @click="item.isDir ? (open = !open) : emit('select', item.path!)"
     >
       <div class="flex items-center gap-1.5 truncate flex-1">
+        <!-- Chevron is visible for every folder: it points down when collapsed and up when
+             expanded. Empty folders get a dimmed, static chevron since there's nothing to toggle. -->
         <i
           v-if="item.isDir"
-          class="fa-solid fa-chevron-right text-[10px] text-slate-500 group-hover:text-slate-300 transition"
-          :class="{ 'rotate-90': open }"
+          class="fa-solid fa-chevron-down w-2.5 text-center text-[10px] transition-transform"
+          :class="[
+            hasChildren
+              ? 'text-slate-500 group-hover:text-slate-300'
+              : 'text-slate-700',
+            open ? 'rotate-0!' : '-rotate-90',
+          ]"
         ></i>
         <i
           :class="item.isDir ? 'fa-solid fa-folder text-amber-400 text-xs' : iconFor(item.extension || '', item.name)"
         ></i>
-        <span :class="item.isDir ? 'font-medium text-slate-200' : 'text-slate-300'" class="truncate">{{ item.name }}</span>
+        <span
+          :class="[item.isDir ? 'font-medium text-slate-200' : 'text-slate-300', !hasChildren && item.isDir ? 'opacity-70' : '']"
+          class="truncate"
+        >{{ item.name }}{{ item.isDir ? '/' : '' }}</span>
       </div>
       <button
         v-if="item.isDir"

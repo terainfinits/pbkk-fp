@@ -53,12 +53,16 @@ export function renderTree(items, container, level = 0) {
         row.className = 'flex items-center justify-between px-2 py-1 rounded hover:bg-slate-800/80 cursor-pointer group text-slate-300 transition text-[11px]';
         row.style.paddingLeft = `${level * 12 + 8}px`;
 
+        const hasChildren = item.isDir && Array.isArray(item.children) && item.children.length > 0;
+
         if (item.isDir) {
             row.innerHTML = `
                 <div class="flex items-center gap-1.5 truncate flex-1">
-                    <i class="fa-solid fa-chevron-right text-[10px] text-slate-500 group-hover:text-slate-300 transition transform dir-arrow"></i>
+                    ${hasChildren
+                        ? '<i class="fa-solid fa-chevron-down text-[10px] text-slate-500 group-hover:text-slate-300 transition dir-arrow -rotate-90"></i>'
+                        : '<span class="w-[10px] inline-block shrink-0"></span>'}
                     <i class="fa-solid fa-folder text-amber-400 text-xs"></i>
-                    <span class="font-medium text-slate-200 truncate">${item.name}</span>
+                    <span class="font-medium text-slate-200 truncate">${item.name}/</span>
                 </div>
                 <button title="Set as AI Target Directory" class="btn-set-target opacity-0 group-hover:opacity-100 px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-400 hover:text-white text-[9px] border border-indigo-500/30">
                     Target
@@ -68,22 +72,34 @@ export function renderTree(items, container, level = 0) {
             const childContainer = document.createElement('div');
             childContainer.className = 'hidden space-y-0.5';
 
-            row.addEventListener('click', (e) => {
-                if (e.target.closest('.btn-set-target')) {
-                    setTargetDirectory(item.path);
-                    showNotification(`Target folder set to /${item.path}`);
-                    return;
-                }
-                const isHidden = childContainer.classList.contains('hidden');
-                const arrow = row.querySelector('.dir-arrow');
-                if (isHidden) {
-                    childContainer.classList.remove('hidden');
-                    arrow.classList.add('rotate-90');
-                } else {
-                    childContainer.classList.add('hidden');
-                    arrow.classList.remove('rotate-90');
-                }
-            });
+            if (hasChildren) {
+                row.addEventListener('click', (e) => {
+                    if (e.target.closest('.btn-set-target')) {
+                        setTargetDirectory(item.path);
+                        showNotification(`Target folder set to /${item.path}`);
+                        return;
+                    }
+                    const isHidden = childContainer.classList.contains('hidden');
+                    const arrow = row.querySelector('.dir-arrow');
+                    if (isHidden) {
+                        childContainer.classList.remove('hidden');
+                        // down arrow (expanded) -> up arrow (collapse affordance)
+                        arrow.classList.remove('-rotate-90');
+                    } else {
+                        childContainer.classList.add('hidden');
+                        // collapsed state shows down arrow rotated to point right/down
+                        arrow.classList.add('-rotate-90');
+                    }
+                });
+            } else {
+                row.classList.add('opacity-70');
+                row.addEventListener('click', (e) => {
+                    if (e.target.closest('.btn-set-target')) {
+                        setTargetDirectory(item.path);
+                        showNotification(`Target folder set to /${item.path}`);
+                    }
+                });
+            }
 
             container.appendChild(row);
             container.appendChild(childContainer);
