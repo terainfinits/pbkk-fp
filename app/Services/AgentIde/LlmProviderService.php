@@ -22,6 +22,7 @@ class LlmProviderService
             'moonshot', 'kimi' => $this->callMoonshot($model, $apiKey, $systemContext, $prompt),
             'gpt', 'openai', 'deepseek' => $this->callOpenAiCompatible($provider, $model, $apiKey, $systemContext, $prompt),
             'ollama', 'ollama_cloud', 'ollama-cloud', 'ollamacloud' => $this->callOllama($model, $apiKey, $systemContext, $prompt),
+            'senopati' => $this->callSenopati($model, $apiKey, $systemContext, $prompt),
             default => ['success' => false, 'error' => "Unknown provider: {$provider}"],
         };
     }
@@ -157,6 +158,35 @@ class LlmProviderService
         }
 
         return ['success' => false, 'error' => 'Ollama API key is missing for Ollama Cloud, and local Ollama server is not running on localhost:11434.'];
+    }
+
+    /**
+     * Senopati ITS LLM Gateway (OpenAI-compatible chat completions endpoint).
+     * Default model: qwen3:14b
+     */
+    private function callSenopati(string $model, string $apiKey, string $systemContext, string $prompt): array
+    {
+        $effectiveModel = $model ?: 'qwen3:14b';
+
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $apiKey,
+            'Content-Type' => 'application/json',
+        ])->timeout(90)->post('https://senopati.its.ac.id/llm-gateway/v1/chat/completions', [
+            'model' => $effectiveModel,
+            'messages' => [
+                ['role' => 'system', 'content' => $systemContext],
+                ['role' => 'user', 'content' => $prompt],
+            ],
+        ]);
+
+        if ($response->successful()) {
+            $text = $response->json('choices.0.message.content', '');
+            return $text !== ''
+                ? ['success' => true, 'text' => $text]
+                : ['success' => false, 'error' => 'Senopati API returned an empty text response.'];
+        }
+
+        return ['success' => false, 'error' => "Senopati API Error ({$response->status()}): " . $this->extractError($response)];
     }
 
     private function extractError($response): string

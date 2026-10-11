@@ -14,6 +14,7 @@ const fields = [
   { key: 'kimi', label: 'Moonshot Kimi API Key', placeholder: 'sk-...' },
   { key: 'deepseek', label: 'DeepSeek API Key', placeholder: 'sk-...' },
   { key: 'ollama_cloud', label: 'Ollama Cloud API Key', placeholder: 'fe...' },
+  { key: 'senopati', label: 'Senopati API Key', placeholder: 'sk-...' },
 ];
 
 watch(

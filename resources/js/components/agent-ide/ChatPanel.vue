@@ -34,6 +34,9 @@ const providerModels: Record<string, { id: string; name: string }[]> = {
     { id: 'qwen2.5-coder', name: 'qwen2.5-coder' },
     { id: 'deepseek-r1', name: 'deepseek-r1' },
   ],
+  senopati: [
+    { id: 'qwen3:14b', name: 'Qwen3 14B' },
+  ],
 };
 
 const provider = ref('ollama_cloud');
@@ -214,6 +217,7 @@ onMounted(() => {
             <option value="kimi">Moonshot Kimi</option>
             <option value="deepseek">DeepSeek AI</option>
             <option value="ollama_cloud">Ollama Cloud</option>
+            <option value="senopati">Senopati</option>
           </select>
         </div>
         <div>
