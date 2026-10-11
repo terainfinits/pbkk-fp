@@ -55,7 +55,7 @@ class FileController extends Controller
             return response()->json(['success' => false, 'error' => 'Path is required'], 400);
         }
 
-        $result = $this->files->createItem($path, $type, $request->input('content', ''));
+        $result = $this->files->createItem($path, $type, $request->input('content') ?? '');
 
         if (!$result['ok']) {
             return response()->json(['success' => false, 'error' => $result['error']], 409);
