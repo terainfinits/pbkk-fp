@@ -160,8 +160,63 @@ async function applyToFile(msg: ChatMessage) {
   }
 }
 
-function openDiff(msg: ChatMessage) {
-  window.dispatchEvent(new CustomEvent('ide:open-diff', { detail: msg.code || '' }));
+async function openDiff(msg: ChatMessage) {
+  if (!msg.code) {
+    state.pushToast('No generated code to diff.', true);
+    return;
+  }
+
+  const target = msg.targetPath || '';
+  let originalContent = '';
+  let isNewFile = false;
+
+  if (target) {
+    const targetTab = state.openTabs.find(t => t.path === target);
+
+    if (targetTab) {
+      originalContent = targetTab.content;
+    } else {
+      try {
+        state.agentStatusLabel.value = 'Fetching file for diff...';
+
+        const data = await api.readFile(target);
+
+        if (data.success) {
+          originalContent = data.content || '';
+        } else {
+          isNewFile = true;
+          originalContent = '';
+        }
+      } catch (err: any) {
+        console.warn(`File ${target} does not exist yet. Treating as new file.`);
+        isNewFile = true;
+        originalContent = '';
+      } finally {
+        state.agentStatusLabel.value = 'Agent Engine Ready';
+      }
+    }
+  } else {
+    const activeTab = state.openTabs.find(t => t.path === state.activeTabPath.value);
+    originalContent = activeTab?.content || '';
+  }
+
+  const ext = target.split('.').pop()?.toLowerCase() || '';
+  const languageMap: Record<string, string> = {
+    js: 'javascript', ts: 'typescript', py: 'python', md: 'markdown', yml: 'yaml', sh: 'shell',
+  };
+  const resolvedLanguage = msg.language || languageMap[ext] || ext || 'plaintext';
+
+  window.dispatchEvent(
+    new CustomEvent('ide:open-diff', {
+      detail: {
+        original: originalContent,
+        modified: msg.code,
+        language: resolvedLanguage,
+        targetPath: target,
+        isNewFile: isNewFile,
+      }
+    })
+  );
 }
 
 function copyCode(msg: ChatMessage) {
@@ -185,7 +240,6 @@ function renderMarkdown(raw?: string): string {
 }
 
 onMounted(() => {
-  // Load saved keys on mount (in case SettingsModal was used before)
 });
 </script>
 

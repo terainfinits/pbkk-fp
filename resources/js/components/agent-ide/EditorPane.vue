@@ -1,74 +1,57 @@
 <script setup lang="ts">
-import { computed, inject, nextTick, onMounted, ref, watch } from 'vue';
+import { computed, inject, nextTick, onMounted, onBeforeUnmount, ref, watch } from 'vue';
 import { CodeEditor } from 'monaco-editor-vue3';
 import * as monaco from 'monaco-editor';
 import TerminalDrawer from './TerminalDrawer.vue';
+import DiffViewer from './DiffViewer.vue';
 import type { IdeApi } from '@/composables/useIdeApi';
 import type { useIdeState, OpenTab } from '@/composables/useIdeState';
 
 const { api, state } = inject<{ api: IdeApi; state: ReturnType<typeof useIdeState> }>('ide')!;
 
 const cursorPos = ref('Ln 1, Col 1');
-const diffOpen = ref(false);
-const diffContent = ref('');
 const code = ref('');
-const isSwitchingTab = ref(false); // Flag to prevent false "dirty" flags during switch
+const isSwitchingTab = ref(false);
+
+// --- Diff State ---
+const diffOpen = ref(false);
+const diffOriginal = ref('');
+const diffModified = ref('');
+const diffLanguage = ref('');
+const diffTargetPath = ref('');
+const diffIsNewFile = ref(false);
 
 const activeTab = computed<OpenTab | undefined>(() =>
   state.openTabs.find(t => t.path === state.activeTabPath.value)
 );
 
 const editorLanguage = computed(() => {
-  // Get extension, lowercase it, and remove any leading dot (e.g., ".js" -> "js")
   const ext = activeTab.value?.extension?.toLowerCase().replace(/^\./, '') || 'php';
-
-  // Map file extensions to Monaco's official language identifiers
   const languageMap: Record<string, string> = {
-    js: 'javascript',
-    ts: 'typescript',
-    py: 'python',
-    md: 'markdown',
-    yml: 'yaml',
-    sh: 'shell',
-    // php, html, css, json, sql already match Monaco's names
+    js: 'javascript', ts: 'typescript', py: 'python', md: 'markdown', yml: 'yaml', sh: 'shell',
   };
-
   return languageMap[ext] || ext;
 });
 
-const currentTheme = ref('my-custom-dark')
+const currentTheme = ref('my-custom-dark');
 
 const handleEditorMount = () => {
   monaco.editor.defineTheme('my-custom-dark', {
-    base: 'vs-dark',
-    inherit: true,
-    rules: [],
-    colors: {
-      'editor.background': '#0b0f1a',
-    }
-  })
+    base: 'vs-dark', inherit: true, rules: [],
+    colors: { 'editor.background': '#0b0f1a' }
+  });
+  monaco.editor.setTheme('my-custom-dark');
+};
 
-  // Forcefully set it if needed
-  monaco.editor.setTheme('my-custom-dark')
-}
+watch(() => state.activeTabPath.value, (newPath) => {
+  isSwitchingTab.value = true;
+  const t = state.openTabs.find(tab => tab.path === newPath);
+  code.value = t ? t.content : '';
+  nextTick(() => { isSwitchingTab.value = false; });
+}, { immediate: true });
 
-// Sync editor content whenever the active tab path changes
-watch(
-  () => state.activeTabPath.value,
-  (newPath) => {
-    isSwitchingTab.value = true;
-    const t = state.openTabs.find(tab => tab.path === newPath);
-    code.value = t ? t.content : '';
-    nextTick(() => {
-      isSwitchingTab.value = false;
-    });
-  },
-  { immediate: true }
-);
-
-// Sync user typing back to the active tab's content state
 watch(code, (val) => {
-  if (isSwitchingTab.value) return; // Ignore updates triggered by tab switches
+  if (isSwitchingTab.value) return;
   const t = activeTab.value;
   if (t && t.content !== val) {
     t.content = val;
@@ -79,9 +62,7 @@ watch(code, (val) => {
 const charCount = computed(() => code.value.length);
 
 function updateCursor(e: any) {
-  if (e && e.position) {
-    cursorPos.value = `Ln ${e.position.lineNumber}, Col ${e.position.column}`;
-  }
+  if (e && e.position) cursorPos.value = `Ln ${e.position.lineNumber}, Col ${e.position.column}`;
 }
 
 function closeTab(path: string) {
@@ -96,10 +77,7 @@ function closeTab(path: string) {
 
 async function saveCurrent() {
   const t = activeTab.value;
-  if (!t) {
-    state.pushToast('No active file to save', true);
-    return;
-  }
+  if (!t) { state.pushToast('No active file to save', true); return; }
   state.statusMessage.value = 'Saving file...';
   const data = await api.saveFile(t.path, code.value);
   if (data.success) {
@@ -112,37 +90,66 @@ async function saveCurrent() {
 }
 
 async function runActive() {
-  const t = activeTab.value;
-  if (!code.value.trim()) {
-    state.pushToast('Editor is empty. Write code to execute.', true);
-    return;
-  }
-  window.dispatchEvent(
-    new CustomEvent('ide:kernel-run', {
-      detail: { code: code.value, language: t?.extension || 'php', path: t?.path || '' },
-    })
-  );
+  if (!code.value.trim()) { state.pushToast('Editor is empty. Write code to execute.', true); return; }
+  window.dispatchEvent(new CustomEvent('ide:kernel-run', {
+    detail: { code: code.value, language: activeTab.value?.extension || 'php', path: activeTab.value?.path || '' },
+  }));
 }
 
-function openDiff(content: string) {
-  diffContent.value = content;
+// --- Updated Diff Functions ---
+function openDiff(detail: { original: string; modified: string; language?: string; targetPath?: string; isNewFile?: boolean }) {
+  diffOriginal.value = detail.original;
+  diffModified.value = detail.modified;
+  diffLanguage.value = detail.language || editorLanguage.value;
+  diffTargetPath.value = detail.targetPath || activeTab.value?.path || '';
+  diffIsNewFile.value = detail.isNewFile || false;
   diffOpen.value = true;
 }
 
-// Keyboard shortcuts
+async function applyDiff(payload: { code: string; targetPath?: string }) {
+  const { code: finalCode, targetPath } = payload;
+
+  if (targetPath) {
+    state.statusMessage.value = 'Saving file...';
+    const data = await api.saveFile(targetPath, finalCode);
+
+    if (data.success) {
+      state.pushToast(`Successfully ${diffIsNewFile.value ? 'created' : 'updated'} ${targetPath}`);
+
+      window.dispatchEvent(new CustomEvent('ide:refresh-tree'));
+    } else {
+      state.pushToast('Failed to save file: ' + data.error, true);
+    }
+  } else {
+    code.value = finalCode;
+    state.pushToast('Changes applied to active editor.');
+  }
+
+  diffOpen.value = false;
+}
+
+function closeDiff() {
+  diffOpen.value = false;
+}
+
+// --- Event Listeners ---
+const handleOpenDiffEvent = (e: Event) => openDiff((e as CustomEvent).detail);
+
 onMounted(() => {
   window.addEventListener('keydown', e => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-      e.preventDefault();
-      saveCurrent();
-    } else if (e.key === 'F5' || ((e.ctrlKey || e.metaKey) && e.key === 'Enter')) {
-      e.preventDefault();
-      runActive();
-    }
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveCurrent(); }
+    else if (e.key === 'F5' || ((e.ctrlKey || e.metaKey) && e.key === 'Enter')) { e.preventDefault(); runActive(); }
   });
   window.addEventListener('ide:save-active', saveCurrent);
   window.addEventListener('ide:run-active', runActive);
-  window.addEventListener('ide:open-diff', (e: any) => openDiff(e.detail));
+
+  // Listen for diff events
+  window.addEventListener('ide:open-diff', handleOpenDiffEvent);
+});
+
+onBeforeUnmount(() => {
+  // Clean up listener to prevent memory leaks
+  window.removeEventListener('ide:open-diff', handleOpenDiffEvent);
 });
 </script>
 
@@ -150,15 +157,11 @@ onMounted(() => {
   <main class="flex-1 flex flex-col bg-[#0b0f19] overflow-hidden">
     <!-- Tabs -->
     <div class="h-10 bg-[#0e1424] border-b border-slate-800 flex items-center px-1 overflow-x-auto shrink-0 space-x-1">
+      <!-- ... existing tabs code ... -->
       <div
-        v-for="tab in state.openTabs"
-        :key="tab.path"
+        v-for="tab in state.openTabs" :key="tab.path"
         class="flex items-center gap-2 px-3 py-1.5 rounded-t text-xs font-medium cursor-pointer border-t-2 transition"
-        :class="
-          tab.path === state.activeTabPath.value
-            ? 'bg-[#0c101c] text-indigo-300 border-indigo-500'
-            : 'bg-[#0d1322] text-slate-400 border-transparent hover:bg-slate-800'
-        "
+        :class="tab.path === state.activeTabPath.value ? 'bg-[#0c101c] text-indigo-300 border-indigo-500' : 'bg-[#0d1322] text-slate-400 border-transparent hover:bg-slate-800'"
         @click="state.activeTabPath.value = tab.path"
       >
         <i class="fa-regular fa-file-code"></i>
@@ -170,6 +173,7 @@ onMounted(() => {
 
     <!-- Breadcrumbs -->
     <div class="h-8 bg-[#0d1220] border-b border-slate-800/60 px-4 flex items-center justify-between text-xs text-slate-400 shrink-0">
+      <!-- ... existing breadcrumbs code ... -->
       <div class="flex items-center gap-2">
         <i class="fa-regular fa-file-code text-indigo-400"></i>
         <span class="font-mono text-slate-300 text-xs">{{ activeTab?.path || 'No file selected' }}</span>
@@ -180,10 +184,7 @@ onMounted(() => {
           {{ (activeTab?.extension || 'txt').toUpperCase() }}
         </span>
         <span class="font-mono text-slate-500">{{ cursorPos }}</span>
-        <button
-          class="px-2.5 py-0.5 rounded bg-emerald-600/30 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/40 font-medium transition flex items-center gap-1 text-[11px]"
-          @click="runActive"
-        >
+        <button class="px-2.5 py-0.5 rounded bg-emerald-600/30 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/40 font-medium transition flex items-center gap-1 text-[11px]" @click="runActive">
           <i class="fa-solid fa-play text-[10px]"></i> Run Code
         </button>
       </div>
@@ -202,15 +203,28 @@ onMounted(() => {
           :options="{ minimap: { enabled: false } }"
           class="h-full w-full"
           @cursorPositionChange="updateCursor"
-                    @editorDidMount="handleEditorMount"
+          @editorDidMount="handleEditorMount"
         />
       </div>
+
+      <!-- Mount the Native Monaco Diff Viewer Overlay -->
+      <DiffViewer
+        :visible="diffOpen"
+        :original-code="diffOriginal"
+        :modified-code="diffModified"
+        :language="diffLanguage"
+        :target-path="diffTargetPath"
+        :is-new-file="diffIsNewFile"
+        @close="closeDiff"
+        @apply="applyDiff"
+      />
 
       <!-- Terminal Drawer -->
       <TerminalDrawer />
 
       <!-- Status Bar -->
       <div class="h-6 bg-[#090d16] border-t border-slate-800/80 px-3 flex items-center justify-between text-[11px] text-slate-500 shrink-0">
+        <!-- ... existing status bar code ... -->
         <div class="flex items-center gap-3">
           <span class="flex items-center gap-1.5 text-emerald-400">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
