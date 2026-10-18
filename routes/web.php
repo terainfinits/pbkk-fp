@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AgentIdeController;
 use App\Http\Controllers\Api\AgentIde\ChatController;
+use App\Http\Controllers\Api\AgentIde\ChatSessionController;
 use App\Http\Controllers\Api\AgentIde\FileController;
 use App\Http\Controllers\Api\AgentIde\KernelController;
 use App\Http\Controllers\CalculatorController;
@@ -34,6 +35,13 @@ Route::prefix('ide')->name('ide.')->group(function () {
         Route::post('/code/run', [KernelController::class, 'run'])->name('code.run');
 
         Route::post('/agent/prompt', [ChatController::class, 'prompt'])->name('agent.prompt');
+
+        Route::get('/chats', [ChatSessionController::class, 'index'])->name('chats.index');
+        Route::post('/chats', [ChatSessionController::class, 'store'])->name('chats.store');
+        Route::get('/chats/{id}', [ChatSessionController::class, 'show'])->name('chats.show');
+        Route::get('/chats/{id}/export', [ChatSessionController::class, 'export'])->name('chats.export');
+        Route::put('/chats/{id}', [ChatSessionController::class, 'update'])->name('chats.update');
+        Route::delete('/chats/{id}', [ChatSessionController::class, 'destroy'])->name('chats.destroy');
 
         Route::post('/terminal/execute', [\App\Http\Controllers\Api\AgentIde\TerminalController::class, 'execute'])->name('terminal.execute');
     });

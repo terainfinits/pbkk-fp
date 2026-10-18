@@ -19,6 +19,7 @@ class AgentIdeController extends Controller
                 'kernels' => route('ide.api.kernels'),
                 'codeRun' => route('ide.api.code.run'),
                 'agentPrompt' => route('ide.api.agent.prompt'),
+                'chats' => route('ide.api.chats.index'),
                 'terminalExecute' => route('ide.api.terminal.execute'),
             ],
         ]);

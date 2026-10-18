@@ -50,6 +50,127 @@ function onProviderChange() {
   model.value = models.value[0]?.id || '';
 }
 
+/* ─── Chat sessions (Database Storage) ─── */
+interface ChatSessionItem {
+  id: number;
+  title: string;
+  provider?: string;
+  model?: string;
+  messages_count?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+const sessions = ref<ChatSessionItem[]>([]);
+const currentSessionId = ref<number | null>(null);
+const isLoadingSessions = ref(false);
+const sessionSearchQuery = ref('');
+let searchDebounceTimer: any = null;
+
+async function loadSessions(selectFirst = false, search = '') {
+  isLoadingSessions.value = true;
+  try {
+    const res = await api.fetchChatSessions(search);
+    if (res?.success && Array.isArray(res.sessions)) {
+      sessions.value = res.sessions;
+      if (selectFirst && !currentSessionId.value && sessions.value.length > 0) {
+        await selectSession(sessions.value[0].id);
+      }
+    }
+  } catch (e) {
+    console.error('Failed to load chat sessions:', e);
+  } finally {
+    isLoadingSessions.value = false;
+  }
+}
+
+function onSearchInput() {
+  clearTimeout(searchDebounceTimer);
+  searchDebounceTimer = setTimeout(() => {
+    loadSessions(false, sessionSearchQuery.value.trim());
+  }, 250);
+}
+
+function clearSearch() {
+  sessionSearchQuery.value = '';
+  loadSessions(false, '');
+}
+
+function exportCurrentSession() {
+  if (!currentSessionId.value) return;
+  const url = api.exportChatUrl(currentSessionId.value);
+  const a = document.createElement('a');
+  a.href = url;
+  a.target = '_blank';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  state.pushToast('Mengunduh riwayat percakapan (.md)...');
+}
+
+async function selectSession(id: number | null) {
+  if (!id) {
+    startNewChat();
+    return;
+  }
+  if (currentSessionId.value === id && messages.value.length > 0) return;
+
+  try {
+    state.agentStatusLabel.value = 'Loading conversation...';
+    const res = await api.fetchChatSession(id);
+    if (res?.success && res.session) {
+      currentSessionId.value = res.session.id;
+      if (res.session.provider) provider.value = res.session.provider;
+      if (res.session.model) model.value = res.session.model;
+
+      messages.value = (res.session.messages || []).map((m: any) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content || '',
+        raw: m.metadata?.raw,
+        code: m.metadata?.code,
+        language: m.metadata?.language,
+        targetPath: m.metadata?.targetPath,
+        steps: m.metadata?.steps || [],
+      }));
+    }
+  } catch (e: any) {
+    state.pushToast('Failed to load chat: ' + e?.message, true);
+  } finally {
+    state.agentStatusLabel.value = 'Agent Engine Ready';
+  }
+}
+
+function startNewChat() {
+  currentSessionId.value = null;
+  messages.value = [];
+  state.pushToast('Started new conversation.');
+}
+
+async function deleteCurrentSession() {
+  if (!currentSessionId.value) return;
+  const idToDelete = currentSessionId.value;
+  if (!confirm('Hapus riwayat percakapan ini?')) return;
+
+  try {
+    await api.deleteChatSession(idToDelete);
+    sessions.value = sessions.value.filter(s => s.id !== idToDelete);
+    startNewChat();
+    state.pushToast('Conversation deleted.');
+  } catch (e: any) {
+    state.pushToast('Failed to delete session', true);
+  }
+}
+
+function onSessionChange(e: Event) {
+  const val = (e.target as HTMLSelectElement).value;
+  if (!val) {
+    startNewChat();
+  } else {
+    selectSession(Number(val));
+  }
+}
+
 /* ─── Chat messages ─── */
 interface ChatMessage {
   id: number;
@@ -111,6 +232,7 @@ async function submit() {
       targetDirectory: state.targetDirectory.value,
       targetFile: activeTab?.path || '',
       currentCode: activeTab?.content || '',
+      sessionId: currentSessionId.value,
     });
 
     botMsg.loading = false;
@@ -124,6 +246,12 @@ async function submit() {
       botMsg.content = data.explanation || '';
       state.lastGeneratedCode.value = data.code;
       state.lastGeneratedTarget.value = data.targetPath;
+
+      if (data.sessionId) {
+        currentSessionId.value = data.sessionId;
+        loadSessions(false);
+      }
+
       state.pushToast('Agentic Chatbot response completed.');
     } else {
       botMsg.error = data.error || 'Failed to process prompt.';
@@ -240,6 +368,7 @@ function renderMarkdown(raw?: string): string {
 }
 
 onMounted(() => {
+  loadSessions(true);
 });
 </script>
 
@@ -255,6 +384,82 @@ onMounted(() => {
         <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
           {{ models.find(m => m.id === model)?.name || model }}
         </span>
+      </div>
+
+      <!-- Chat Session Storage Toolbar -->
+      <div class="p-2 rounded-lg bg-slate-950/70 border border-slate-800/80 space-y-1.5">
+        <div class="flex items-center justify-between">
+          <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+            <i class="fa-regular fa-comments text-indigo-400"></i>
+            <span>Chat Session</span>
+          </label>
+          <div class="flex items-center gap-1">
+            <button
+              title="Start a new chat"
+              class="px-2 py-0.5 rounded bg-indigo-600/30 hover:bg-indigo-600 text-indigo-200 hover:text-white text-[10px] font-semibold transition flex items-center gap-1"
+              @click="startNewChat"
+            >
+              <i class="fa-solid fa-plus text-[9px]"></i> New
+            </button>
+            <button
+              v-if="currentSessionId"
+              title="Export riwayat ke Markdown (.md)"
+              class="p-1 rounded text-slate-400 hover:text-indigo-300 hover:bg-indigo-950/40 text-[10px] transition"
+              @click="exportCurrentSession"
+            >
+              <i class="fa-solid fa-file-arrow-down"></i>
+            </button>
+            <button
+              v-if="currentSessionId"
+              title="Hapus percakapan ini"
+              class="p-1 rounded text-slate-500 hover:text-red-400 hover:bg-red-950/40 text-[10px] transition"
+              @click="deleteCurrentSession"
+            >
+              <i class="fa-regular fa-trash-can"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Search / Filter input (AF5) -->
+        <div class="relative">
+          <i class="fa-solid fa-magnifying-glass absolute left-2 top-2 text-[10px] text-slate-500"></i>
+          <input
+            v-model="sessionSearchQuery"
+            type="text"
+            placeholder="Cari riwayat percakapan..."
+            class="w-full bg-slate-900 border border-slate-700/80 rounded px-2 pl-6 pr-6 py-1 text-[11px] text-slate-200 placeholder-slate-500 outline-none focus:border-indigo-500 transition"
+            @input="onSearchInput"
+          />
+          <button
+            v-if="sessionSearchQuery"
+            type="button"
+            class="absolute right-2 top-1.5 text-slate-500 hover:text-slate-300 text-[10px]"
+            @click="clearSearch"
+          >
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <select
+          :value="currentSessionId || ''"
+          class="w-full bg-slate-900 border border-slate-700/80 text-slate-200 text-xs rounded px-2 py-1.5 outline-none focus:border-indigo-500 transition truncate"
+          @change="onSessionChange"
+        >
+          <option value="" class="bg-slate-900 text-slate-400">
+            ✨ Percakapan Baru (+ New Chat)
+          </option>
+          <option
+            v-for="s in sessions"
+            :key="s.id"
+            :value="s.id"
+            class="bg-slate-900 text-slate-200"
+          >
+            💬 {{ s.title }} ({{ s.messages_count ?? '0' }} pesan)
+          </option>
+          <option v-if="sessions.length === 0 && sessionSearchQuery" disabled class="bg-slate-900 text-slate-500 italic">
+            (Tidak ditemukan percakapan yang cocok)
+          </option>
+        </select>
       </div>
 
       <div class="grid grid-cols-2 gap-2">

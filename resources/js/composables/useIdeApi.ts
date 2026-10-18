@@ -9,6 +9,7 @@ export interface IdeRoutes {
   kernels: string;
   codeRun: string;
   agentPrompt: string;
+  chats?: string;
   terminalExecute: string;
 }
 
@@ -21,6 +22,7 @@ export const defaultRoutes: IdeRoutes = {
   kernels: '/api/ide/kernels',
   codeRun: '/api/ide/code/run',
   agentPrompt: '/api/ide/agent/prompt',
+  chats: '/ide/api/chats',
   terminalExecute: '/api/ide/terminal/execute',
 };
 
@@ -45,6 +47,20 @@ async function post<T = any>(url: string, body: unknown): Promise<T> {
   return { success: false, error: text || `HTTP ${res.status}` } as T;
 }
 
+async function del<T = any>(url: string): Promise<T> {
+  const res = await fetch(url, {
+    method: 'DELETE',
+    headers: {
+      'X-CSRF-TOKEN': csrf(),
+      'Accept': 'application/json',
+    },
+  });
+  const ct = res.headers.get('content-type') || '';
+  if (ct.includes('application/json')) return res.json();
+  const text = await res.text();
+  return { success: false, error: text || `HTTP ${res.status}` } as T;
+}
+
 async function get<T = any>(url: string): Promise<T> {
   const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
   const ct = res.headers.get('content-type') || '';
@@ -54,6 +70,7 @@ async function get<T = any>(url: string): Promise<T> {
 }
 
 export function createIdeApi(routes: IdeRoutes) {
+  const chatsEndpoint = routes.chats || '/ide/api/chats';
   return {
     routes,
     fetchTree: () => get(routes.tree),
@@ -73,7 +90,15 @@ export function createIdeApi(routes: IdeRoutes) {
       targetDirectory: string;
       targetFile: string;
       currentCode: string;
+      sessionId?: number | null;
     }) => post(routes.agentPrompt, payload),
+    fetchChatSessions: (search = '') =>
+      get(`${chatsEndpoint}${search ? `?search=${encodeURIComponent(search)}` : ''}`),
+    createChatSession: (title?: string, provider?: string, model?: string) =>
+      post(chatsEndpoint, { title, provider, model }),
+    fetchChatSession: (id: number) => get(`${chatsEndpoint}/${id}`),
+    exportChatUrl: (id: number) => `${chatsEndpoint}/${id}/export`,
+    deleteChatSession: (id: number) => del(`${chatsEndpoint}/${id}`),
     terminalExecute: (command: string, cwd = '') =>
       post(routes.terminalExecute, { command, cwd }),
   };
