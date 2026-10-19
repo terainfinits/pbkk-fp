@@ -31,11 +31,11 @@ class TerminalController extends Controller
 
         return response()->json([
             'success' => true,
-            'stdout' => $result['stdout'] ?? '',
-            'stderr' => $result['stderr'] ?? '',
-            'exitCode' => $result['exitCode'] ?? -1,
-            'executionTimeMs' => $result['executionTimeMs'] ?? 0,
-            'cwd' => $result['cwd'] ?? $cwd,
+            'stdout' => $result['stdout'],
+            'stderr' => $result['stderr'],
+            'exitCode' => $result['exitCode'],
+            'executionTimeMs' => $result['executionTimeMs'],
+            'cwd' => $result['cwd'],
         ]);
     }
 }

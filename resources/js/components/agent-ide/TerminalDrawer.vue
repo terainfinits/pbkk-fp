@@ -418,6 +418,19 @@ const handleKernelRun = (event: Event) =>
     void runKernel((event as CustomEvent<KernelRunDetail>).detail);
 
 onMounted(() => {
+    void api
+        .fetchKernels()
+        .then((data) => {
+            if (disposed || !data.success) return;
+            isWindows.value = data.shell?.platform === 'windows';
+            state.kernels.value = data.kernels;
+            const welcome = logs.value.find((entry) => entry.type === 'system');
+            if (welcome) {
+                welcome.text = shellDesc.value;
+                welcome.prompt = promptSign.value;
+            }
+        })
+        .catch(() => {});
     logs.value.push({
         id: nextLogId(),
         type: 'system',

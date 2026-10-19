@@ -12,7 +12,7 @@ abstract class TestCase extends BaseTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->testDirectory = storage_path('framework/testing/'.bin2hex(random_bytes(10)));
+        $this->testDirectory = storage_path('framework/testing/native space '.bin2hex(random_bytes(10)));
         config(['ide.workspace_root' => $this->testDirectory.'/workspaces', 'ide.runs_root' => $this->testDirectory.'/runs', 'ide.legacy_owner_email' => null]);
     }
 

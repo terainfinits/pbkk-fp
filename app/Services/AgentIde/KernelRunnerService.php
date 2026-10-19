@@ -3,29 +3,15 @@
 namespace App\Services\AgentIde;
 
 use Illuminate\Support\Facades\File;
-use Symfony\Component\Process\ExecutableFinder;
-use Symfony\Component\Process\Process;
 
 class KernelRunnerService
 {
-    public function __construct(private SandboxService $sandbox, private WorkspaceService $workspace) {}
+    public function __construct(private SandboxService $sandbox, private WorkspaceService $workspace, private RuntimeService $runtimes) {}
 
-    /** @return array{executable: string, version: string}|null */
+    /** @return array{command: list<string>, executable: string, version: string}|null */
     public function pythonRuntime(): ?array
     {
-        foreach (['python3', 'python'] as $name) {
-            $path = (new ExecutableFinder)->find($name);
-            if (! $path) {
-                continue;
-            }
-            $probe = new Process([$path, '--version']);
-            $probe->setTimeout(5);
-            if ($probe->run() === 0 && str_starts_with($version = trim($probe->getOutput()), 'Python 3.')) {
-                return ['executable' => realpath($path) ?: $path, 'version' => $version];
-            }
-        }
-
-        return null;
+        return $this->runtimes->python();
     }
 
     /** @return array<string, array{available: bool, version: string}> */
@@ -33,8 +19,12 @@ class KernelRunnerService
     {
         $available = $this->sandbox->available();
         $kernels = [];
-        foreach (['python' => ['/usr/bin/python3', '--version'], 'php' => ['/usr/bin/php', '-v'], 'node' => ['/usr/bin/node', '--version']] as $name => $command) {
-            $version = $available ? $this->sandbox->run($command) : null;
+        foreach (['python', 'php', 'node'] as $name) {
+            try {
+                $version = $available ? $this->sandbox->run([...$this->sandbox->runtime($name), '--version']) : null;
+            } catch (\Throwable) {
+                $version = null;
+            }
             $kernels[$name] = ['available' => $version !== null && $version['exitCode'] === 0, 'version' => $version ? (strtok($version['stdout'], "\n") ?: 'Not detected') : 'Execution unavailable'];
         }
 
@@ -44,6 +34,7 @@ class KernelRunnerService
     /** @return array<string, mixed> */
     public function run(string $code, string $language, string $filePath, string $basePath): array
     {
+        $this->sandbox->requireAvailable();
         if ($filePath !== '') {
             $this->workspace->resolve($filePath);
         }
@@ -55,17 +46,18 @@ class KernelRunnerService
         }
         $language = strtolower($language ?: pathinfo($filePath, PATHINFO_EXTENSION));
         $runtime = match ($language) {
-            'py', 'python' => ['/usr/bin/python3', '-u', '/run/code'],
-            'php' => ['/usr/bin/php', '/run/code'],
-            'js', 'javascript', 'node' => ['/usr/bin/node', '--max-old-space-size=128', '--jitless', '/run/code'],
-            'sh', 'shell', 'bash' => ['/usr/bin/bash', '/run/code'],
+            'py', 'python' => [...$this->sandbox->runtime('python'), '-u', '/run/code'],
+            'php' => [...$this->sandbox->runtime('php'), '/run/code'],
+            'js', 'javascript', 'node' => [...$this->sandbox->runtime('node'), '--max-old-space-size=128', '/run/code'],
+            'sh', 'shell', 'bash', 'powershell', 'ps1' => [...$this->sandbox->runtime('shell'), ...($this->sandbox->shellInfo()['platform'] === 'windows' ? ['-NoLogo', '-NoProfile', '-File'] : []), '/run/code'],
             default => abort(422, 'This language is not supported by the code runner.'),
         };
         abort_if(trim($code) === '', 422, 'No code provided.');
-        $this->sandbox->requireAvailable();
         $directory = storage_path('app/kernel_runner');
         File::ensureDirectoryExists($directory, 0700);
-        $file = $directory.'/'.bin2hex(random_bytes(24));
+        $file = $directory.'/'.bin2hex(random_bytes(24)).match ($language) {
+            'py', 'python' => '.py', 'php' => '.php', 'js', 'javascript', 'node' => '.js', 'ps1', 'powershell' => '.ps1', default => $this->sandbox->shellInfo()['platform'] === 'windows' ? '.ps1' : '.sh'
+        };
         file_put_contents($file, $code);
         try {
             return ['ok' => true, 'kernel' => $language, 'language' => $language] + $this->sandbox->run($runtime, '', $file);

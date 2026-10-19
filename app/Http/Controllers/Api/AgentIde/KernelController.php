@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\AgentIde;
 use App\Http\Controllers\Controller;
 use App\Services\AgentIde\FileExplorerService;
 use App\Services\AgentIde\KernelRunnerService;
+use App\Services\AgentIde\SandboxService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -15,11 +16,12 @@ class KernelController extends Controller
         private FileExplorerService $files,
     ) {}
 
-    public function index(): JsonResponse
+    public function index(SandboxService $runner): JsonResponse
     {
         return response()->json([
             'success' => true,
             'kernels' => $this->kernels->detectKernels(),
+            'shell' => $runner->shellInfo(),
         ]);
     }
 

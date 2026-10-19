@@ -2,7 +2,6 @@
 
 use App\Models\User;
 use App\Services\AgentIde\InteractivePythonService;
-use App\Services\AgentIde\SandboxService;
 use Illuminate\Support\Facades\File;
 
 beforeEach(function () {
@@ -12,9 +11,6 @@ beforeEach(function () {
     $this->pythonOwner = $user->id.':'.$token;
     $this->pythonRuns = [];
     $this->withSession(['python_owner' => $token]);
-    if (! app(SandboxService::class)->available()) {
-        $this->markTestSkipped('Bubblewrap namespaces are unavailable in this environment.');
-    }
 });
 
 afterEach(function () {
@@ -31,7 +27,7 @@ afterEach(function () {
 
 function awaitPythonState($test, string $id, callable $condition): array
 {
-    $deadline = microtime(true) + 5;
+    $deadline = microtime(true) + 10;
     do {
         $response = $test->getJson(route('ide.api.python.status', ['runId' => $id]))->assertOk();
         $state = $response->json();
@@ -109,4 +105,23 @@ test('python reports tracebacks and stops excessive output', function () {
         expect($final['exitCode'])->not->toBe(0);
         expect($final['stderr'])->toContain(str_starts_with($code, 'raise') ? 'ValueError: example failure' : 'Output limit reached');
     }
+});
+
+test('logout terminates the active Python program and denies further API access', function () {
+    $id = $this->postJson(route('ide.api.python.start'), ['code' => "input('Waiting: ')"])->assertOk()->json('runId');
+    $this->pythonRuns[] = $id;
+    awaitPythonState($this, $id, fn ($s) => str_contains($s['stdout'], 'Waiting: '));
+    $this->post('/logout')->assertRedirect('/login');
+    $this->getJson(route('ide.api.python.status', ['runId' => $id]))->assertUnauthorized();
+    $service = app(InteractivePythonService::class);
+    $deadline = microtime(true) + 5;
+    do {
+        $state = $service->status($id, $this->pythonOwner);
+        if (! $state['running']) {
+            break;
+        }
+        usleep(25000);
+    } while (microtime(true) < $deadline);
+    expect($state['running'])->toBeFalse();
+    expect($state['stderr'])->toContain('Stopped.');
 });

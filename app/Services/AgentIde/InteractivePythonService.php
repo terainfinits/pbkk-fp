@@ -33,7 +33,10 @@ class InteractivePythonService
         File::put($directory.'/owner', hash('sha256', $owner));
         File::put($directory.'/code.py', $code);
         File::put($directory.'/input.jsonl', '');
-        File::put($directory.'/command.json', json_encode($this->sandbox->command(['/usr/bin/python3', '-u', '/run/code'], '', $directory.'/code.py'), JSON_THROW_ON_ERROR));
+        $command = $this->sandbox->command([...$this->sandbox->runtime('python'), '-u', '/run/code'], '', $directory.'/code.py');
+        File::put($directory.'/command.json', json_encode($command, JSON_THROW_ON_ERROR));
+        File::put($directory.'/cleanup.json', json_encode($this->sandbox->cleanupCommand($command), JSON_THROW_ON_ERROR));
+        File::put($directory.'/limits.json', json_encode(['seconds' => config()->integer('ide.execution_seconds'), 'interactive' => true], JSON_THROW_ON_ERROR));
         File::put($directory.'/state.json', json_encode([
             'running' => true, 'stdout' => '', 'stderr' => '',
             'exitCode' => null, 'executionTimeMs' => 0,
@@ -41,7 +44,7 @@ class InteractivePythonService
 
         // This launcher exits immediately; its detached worker owns the Python pipes.
         $launcher = new Process([
-            $runtime['executable'], base_path('scripts/python_session.py'), $directory, $cwd,
+            ...$runtime['command'], base_path('scripts/python_session.py'), $directory, $cwd,
         ]);
         $launcher->setTimeout(10);
         try {

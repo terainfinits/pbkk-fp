@@ -10,6 +10,7 @@ import subprocess
 import sys
 import threading
 import time
+from process_control import ProcessTree
 
 MAX_SECONDS = 300
 MAX_OUTPUT = 1_000_000
@@ -19,32 +20,68 @@ def supervise(directory, cwd):
     started = time.monotonic()
     state = dict(running=True, stdout="", stderr="", exitCode=None, executionTimeMs=0)
     process = None
+    tree = None
+    cleanup = []
+    cleaned_up = False
 
     def publish():
         state["executionTimeMs"] = round((time.monotonic() - started) * 1000)
         temporary = directory / "state.tmp"
         temporary.write_text(json.dumps(state), encoding="utf-8")
-        os.replace(temporary, directory / "state.json")
+        for attempt in range(5):
+            try:
+                os.replace(temporary, directory / "state.json")
+                break
+            except PermissionError:
+                if attempt == 4:
+                    raise
+                time.sleep(0.01)
 
     def terminate():
+        nonlocal cleaned_up
+        if cleanup and not cleaned_up:
+            cleaned_up = True
+            try:
+                subprocess.run(cleanup, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
+            except (OSError, subprocess.TimeoutExpired):
+                pass
         if process is None:
             return
-        try:
-            if os.name == "posix":
+        if tree is not None:
+            tree.stop()
+        elif process.poll() is None:
+            if os.name == 'nt':
+                subprocess.run(['taskkill', '/PID', str(process.pid), '/T', '/F'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
+            else:
                 os.killpg(process.pid, signal.SIGKILL)
-            elif process.poll() is None:
-                process.kill()
-        except ProcessLookupError:
-            pass
 
     try:
-        environment = {"PATH": "/usr/bin:/bin", "PYTHONIOENCODING": "utf-8"}
+        # Preserve the environment needed by native Windows runtimes and Docker.
+        # Native execution is restricted to trusted, non-production use by PHP.
+        environment = dict(os.environ, PYTHONIOENCODING="utf-8")
+        environment['PYTHONUTF8'] = '1'
+        environment['PYTHONPATH'] = cwd + (os.pathsep + environment['PYTHONPATH'] if environment.get('PYTHONPATH') else '')
+        settings = json.loads((directory / 'limits.json').read_text(encoding='utf-8')) if (directory / 'limits.json').exists() else {}
+        seconds = settings.get('seconds', MAX_SECONDS)
+        interactive = settings.get('interactive', True)
+        if (directory / "cleanup.json").exists():
+            cleanup = json.loads((directory / "cleanup.json").read_text(encoding="utf-8"))
         command = json.loads((directory / "command.json").read_text(encoding="utf-8"))
+        gate = directory / 'process-ready'
+        if os.name == 'nt':
+            # The trusted wrapper waits until it belongs to our Job Object before
+            # starting user code, so even short-lived launchers cannot escape cleanup.
+            command = [sys.executable, str(Path(__file__).with_name('process_control.py')),
+                       '--gated', str(gate), json.dumps(command, ensure_ascii=False)]
         process = subprocess.Popen(
             command,
-            cwd=cwd, env=environment, stdin=subprocess.PIPE,
+            cwd=cwd, env=environment, stdin=subprocess.PIPE if interactive else subprocess.DEVNULL,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True,
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0,
         )
+        tree = ProcessTree(process)
+        if os.name == 'nt':
+            gate.touch()
         output = queue.Queue(maxsize=256)
         inputs = queue.Queue(maxsize=128)
 
@@ -72,15 +109,16 @@ def supervise(directory, cwd):
                    for pipe, name in [(process.stdout, "stdout"), (process.stderr, "stderr")]]
         for reader in readers:
             reader.start()
-        threading.Thread(target=write_input, daemon=True).start()
+        if interactive:
+            threading.Thread(target=write_input, daemon=True).start()
         pending = ""
         with (directory / "input.jsonl").open(encoding="utf-8") as mailbox:
             while True:
                 reason = None
                 if (directory / "stop").exists():
                     reason = "Stopped."
-                elif time.monotonic() - started > MAX_SECONDS:
-                    reason = "Execution timed out after 5 minutes."
+                elif time.monotonic() - started > seconds:
+                    reason = "Execution timed out after 5 minutes." if seconds == 300 else f"Execution timed out after {seconds} seconds."
 
                 # Limit each drain so a noisy program cannot starve Stop/timeout checks.
                 for _ in range(256):
@@ -131,4 +169,5 @@ if __name__ == "__main__":
             [sys.executable, __file__, "--worker", *sys.argv[1:]],
             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL, close_fds=True, start_new_session=True,
+            creationflags=(subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP) if os.name == 'nt' else 0,
         )

@@ -2,6 +2,7 @@
 
 use App\Models\User;
 use App\Services\AgentIde\WorkspaceService;
+use Symfony\Component\Process\Process;
 
 test('users have independent file trees and cannot access legacy files', function () {
     $ada = User::factory()->create();
@@ -30,7 +31,11 @@ test('file and AI context operations reject symlinks outside the workspace', fun
     $outside = dirname($root).'/outside';
     mkdir($outside);
     file_put_contents($outside.'/secret', 'private');
-    symlink($outside, $root.'/link');
+    if (PHP_OS_FAMILY === 'Windows') {
+        (new Process(['cmd', '/c', 'mklink', '/J', str_replace('/', '\\', $root.'/link'), str_replace('/', '\\', $outside)]))->mustRun();
+    } else {
+        symlink($outside, $root.'/link');
+    }
     $this->getJson('/ide/api/tree')->assertJsonCount(0, 'tree');
     foreach (['read', 'save', 'delete', 'create'] as $action) {
         $this->postJson('/ide/api/file/'.$action, ['path' => 'link/secret', 'type' => 'file', 'content' => 'bad'])->assertForbidden();

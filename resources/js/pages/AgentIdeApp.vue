@@ -41,9 +41,6 @@ provide('ide', {
 });
 
 onMounted(() => {
-    void api.fetchKernels().then((data) => {
-        if (data.success) state.kernels.value = data.kernels;
-    });
     if (typeof window !== 'undefined') {
         (window as any).IdeRoutes = routes;
     }

@@ -33,6 +33,6 @@ class TerminalService
             return ['stdout' => '', 'stderr' => '', 'exitCode' => 0, 'executionTimeMs' => 0, 'cwd' => $cwd];
         }
 
-        return $this->sandbox->run(['/usr/bin/bash', '-c', $command], $cwd) + ['cwd' => $cwd];
+        return $this->sandbox->run($this->sandbox->shellCommand($command), $cwd) + ['cwd' => $cwd];
     }
 }
