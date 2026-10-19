@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { inject, onMounted, ref } from 'vue';
+import { inject, onMounted, onBeforeUnmount, ref } from 'vue';
 import TreeNode from './TreeNode.vue';
 import type { IdeApi } from '@/composables/useIdeApi';
 import type { useIdeState, OpenTab } from '@/composables/useIdeState';
@@ -77,11 +77,84 @@ function setTarget(dir: string) {
   state.pushToast(`Target folder set to /${dir}`);
 }
 
-onMounted(loadTree);
+async function handleRename(path: string) {
+  const newName = prompt('Masukkan nama baru:', path.split('/').pop() || '');
+  if (!newName || newName === path.split('/').pop()) return;
+  try {
+    const res = await api.renameFile(path, newName);
+    if (res.success) {
+      state.pushToast(`Diubah nama menjadi ${newName}`);
+      void loadTree();
+    } else {
+      state.pushToast('Gagal rename: ' + (res.error || ''), true);
+    }
+  } catch (err: any) {
+    state.pushToast('Error rename: ' + err?.message, true);
+  }
+}
+
+async function handleDelete(path: string, isDir: boolean) {
+  const name = path.split('/').pop() || path;
+  const confirmed = confirm(isDir ? `Hapus folder "${name}" dan isinya?` : `Hapus file "${name}"?`);
+  if (!confirmed) return;
+  try {
+    const res = await api.deleteFile(path);
+    if (res.success) {
+      state.pushToast('Dihapus');
+      void loadTree();
+    } else {
+      state.pushToast('Gagal hapus: ' + (res.error || ''), true);
+    }
+  } catch (err: any) {
+    state.pushToast('Error hapus: ' + err?.message, true);
+  }
+}
+
+function openUpload() {
+  document.getElementById('upload-file-input')?.click();
+}
+
+async function handleUpload(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+  try {
+    const res = await api.uploadFile(file, targetDirectory.value);
+    if (res.success) {
+      state.pushToast('Upload berhasil');
+      input.value = '';
+      void loadTree();
+    } else {
+      state.pushToast('Gagal upload: ' + (res.error || ''), true);
+    }
+  } catch (err: any) {
+    state.pushToast('Error upload: ' + err?.message, true);
+  }
+}
 
 /* Respond to refresh events from CreateModal / ChatPanel */
-window.addEventListener('ide:refresh-tree', loadTree);
-window.addEventListener('ide:open-file', (e: any) => openFile(e.detail));
+function handleOpenFileEvent(event: Event) {
+  const filePath = (event as CustomEvent<string>).detail;
+
+  if (typeof filePath === 'string' && filePath.length > 0) {
+    void openFile(filePath);
+  }
+}
+
+onMounted(() => {
+  // Load the project tree only in the browser
+  void loadTree();
+
+  // Register browser event listeners only in the browser
+  window.addEventListener('ide:refresh-tree', loadTree);
+  window.addEventListener('ide:open-file', handleOpenFileEvent);
+});
+
+onBeforeUnmount(() => {
+  // Remove listeners when the component is destroyed
+  window.removeEventListener('ide:refresh-tree', loadTree);
+  window.removeEventListener('ide:open-file', handleOpenFileEvent);
+});
 </script>
 
 <template>
@@ -102,6 +175,10 @@ window.addEventListener('ide:open-file', (e: any) => openFile(e.detail));
         <button title="Refresh" class="w-6 h-6 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200 flex items-center justify-center transition" @click="loadTree">
           <i class="fa-solid fa-rotate text-xs"></i>
         </button>
+        <button title="Upload" class="w-6 h-6 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200 flex items-center justify-center transition" @click="openUpload">
+          <i class="fa-solid fa-upload text-xs"></i>
+        </button>
+        <input type="file" id="upload-file-input" class="hidden" @change="handleUpload" />
       </div>
     </div>
 
@@ -134,6 +211,8 @@ window.addEventListener('ide:open-file', (e: any) => openFile(e.detail));
         :level="0"
         @select="openFile"
         @target="setTarget"
+        @rename="handleRename"
+        @delete="(p, isDir) => handleDelete(p, isDir)"
       />
 
       <div v-if="!isLoading && !loadError && projectTree.length === 0" class="p-3 text-slate-500 text-xs italic">

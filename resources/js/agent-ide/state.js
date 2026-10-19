@@ -48,4 +48,11 @@ export const state = {
     lastGeneratedTarget: '',
     createModalType: 'file', // 'file' | 'directory'
     pendingReview: null, // { targetPath, originalCode, newCode, isNewTab }
+    // Inline rename state
+    renamingPath: null,   // relative path currently being renamed, or null
+    renameValue: '',      // current text in the rename input
+    // Delete confirmation
+    deleteTarget: null,   // { path, isDir }
+    // Upload
+    uploadModalOpen: false,
 };

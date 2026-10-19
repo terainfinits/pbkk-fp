@@ -1,4 +1,4 @@
-// "Create new file/folder" modal + the diff-view drawer.
+// "Create new file/folder" modal + upload modal + delete-confirm modal + diff-view drawer.
 
 import { api } from './api.js';
 import { dom } from './dom.js';
@@ -11,8 +11,8 @@ export function showDiffView(targetPath, newCode) {
     dom.diffCodeView.textContent = `--- Original (${targetPath})\n+++ Proposed AI Changes\n\n` + newCode;
 }
 
-export function initModals({ fetchTree, openFile }) {
-    // Create modal
+export function initModals({ fetchTree, openFile, confirmDelete, cancelDelete, executeDelete }) {
+    // ── Create modal ────────────────────────────────────────────────────
     const createModal = document.getElementById('create-modal');
     const createModalTitle = document.getElementById('create-modal-title');
     const createModalInput = document.getElementById('create-modal-input');
@@ -56,5 +56,49 @@ export function initModals({ fetchTree, openFile }) {
         } catch (err) {
             showNotification('Error creating item', true);
         }
+    });
+
+    // ── Upload modal ────────────────────────────────────────────────────
+    const uploadModal = document.getElementById('upload-modal');
+    const uploadModalFile = document.getElementById('upload-modal-file');
+    const uploadModalDir = document.getElementById('upload-modal-dir');
+
+    document.getElementById('btn-upload').addEventListener('click', () => {
+        uploadModalFile.value = '';
+        uploadModalDir.value = state.targetDirectory ? `${state.targetDirectory}` : '';
+        uploadModal.classList.remove('hidden');
+    });
+
+    document.getElementById('btn-cancel-upload').addEventListener('click', () => {
+        uploadModal.classList.add('hidden');
+    });
+
+    document.getElementById('btn-confirm-upload').addEventListener('click', async () => {
+        const file = uploadModalFile.files[0];
+        if (!file) {
+            showNotification('Please select a file to upload', true);
+            return;
+        }
+        try {
+            const data = await api.uploadFile(file, uploadModalDir.value.trim());
+            if (data.success) {
+                uploadModal.classList.add('hidden');
+                showNotification(data.message);
+                await fetchTree();
+            } else {
+                showNotification(data.error || 'Upload failed', true);
+            }
+        } catch (err) {
+            showNotification('Error uploading file', true);
+        }
+    });
+
+    // ── Delete confirm modal ────────────────────────────────────────────
+    document.getElementById('btn-cancel-delete').addEventListener('click', () => {
+        cancelDelete();
+    });
+
+    document.getElementById('btn-confirm-delete').addEventListener('click', () => {
+        executeDelete();
     });
 }

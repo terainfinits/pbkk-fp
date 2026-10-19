@@ -30,6 +30,8 @@ Route::prefix('ide')->name('ide.')->group(function () {
         Route::post('/file/save', [FileController::class, 'save'])->name('file.save');
         Route::post('/file/create', [FileController::class, 'create'])->name('file.create');
         Route::post('/file/delete', [FileController::class, 'delete'])->name('file.delete');
+        Route::post('/file/rename', [FileController::class, 'rename'])->name('file.rename');
+        Route::post('/file/upload', [FileController::class, 'upload'])->name('file.upload');
 
         Route::get('/kernels', [KernelController::class, 'index'])->name('kernels');
         Route::post('/code/run', [KernelController::class, 'run'])->name('code.run');

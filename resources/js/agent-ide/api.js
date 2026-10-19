@@ -17,6 +17,17 @@ async function postJson(url, body) {
     return res.json();
 }
 
+async function postForm(url, formData) {
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': dom.csrfToken,
+        },
+        body: formData,
+    });
+    return res.json();
+}
+
 async function getJson(url) {
     const res = await fetch(url);
     return res.json();
@@ -28,6 +39,13 @@ export const api = {
     saveFile: (path, content) => postJson(routes.fileSave, { path, content }),
     createItem: (path, type, content = '') => postJson(routes.fileCreate, { path, type, content }),
     deleteItem: (path) => postJson(routes.fileDelete, { path }),
+    renameItem: (path, newName) => postJson(routes.fileRename, { path, newName }),
+    uploadFile: (file, targetDirectory) => {
+        const fd = new FormData();
+        fd.append('upload', file);
+        fd.append('targetDirectory', targetDirectory || '');
+        return postForm(routes.fileUpload, fd);
+    },
     fetchKernels: () => getJson(routes.kernels),
     runCode: (code, language, path) => postJson(routes.codeRun, { code, language, path }),
     promptAgent: (payload) => postJson(routes.agentPrompt, payload),

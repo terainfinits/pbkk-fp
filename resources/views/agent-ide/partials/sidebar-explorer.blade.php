@@ -12,6 +12,9 @@
             <button id="btn-new-folder" title="New Folder" class="w-6 h-6 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200 flex items-center justify-center transition">
                 <i class="fa-solid fa-folder-plus text-xs"></i>
             </button>
+            <button id="btn-upload" title="Upload" class="w-6 h-6 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200 flex items-center justify-center transition">
+                <i class="fa-solid fa-upload text-xs"></i>
+            </button>
             <button id="btn-refresh-tree" title="Refresh" class="w-6 h-6 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200 flex items-center justify-center transition">
                 <i class="fa-solid fa-rotate text-xs"></i>
             </button>

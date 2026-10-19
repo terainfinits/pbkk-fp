@@ -1,7 +1,23 @@
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue';
-import { DiffEditor } from 'monaco-editor-vue3';
-import * as monaco from 'monaco-editor';
+import { ref, watch, nextTick, shallowRef, onMounted} from 'vue';
+// Import monaco-editor lazily only in browser to avoid SSR "define is not defined" error
+let monaco: typeof import('monaco-editor') | undefined;
+const isBrowser = typeof window !== 'undefined';
+
+async function loadMonaco() {
+  if (!monaco && isBrowser) {
+    const mod = await import('monaco-editor');
+    monaco = mod;
+  }
+  return monaco;
+}
+
+const DiffEditorComponent = shallowRef<any>(null);
+
+onMounted(async () => {
+  const mod = await import('monaco-editor-vue3');
+  DiffEditorComponent.value = mod.DiffEditor;
+});
 
 const props = defineProps<{
   visible: boolean;
@@ -15,29 +31,31 @@ const props = defineProps<{
 const emit = defineEmits(['close', 'apply']);
 
 const currentModified = ref(props.modifiedCode);
-const diffEditorRef = ref<InstanceType<typeof DiffEditor> | null>(null);
+const diffEditorRef = ref<any>(null);
 
 watch(() => props.modifiedCode, (val) => { currentModified.value = val; });
 
-function handleDiffEditorMount(editor: any) {
+async function handleDiffEditorMount(editor: any) {
   try {
-    monaco.editor.defineTheme('my-custom-dark', {
-      base: 'vs-dark',
-      inherit: true,
-      rules: [],
-      colors: {
-        'editor.background': '#0b0f1a',
-        // Force the background of the diff gutter/margin to match
-        'diffEditor.insertedTextBackground': '#10b98120',
-        'diffEditor.removedTextBackground': '#ef444420',
-      }
-    });
+    const mon = await loadMonaco();
+    if (mon && isBrowser) {
+      mon.editor.defineTheme('my-custom-dark', {
+        base: 'vs-dark',
+        inherit: true,
+        rules: [],
+        colors: {
+          'editor.background': '#0b0f1a',
+          // Force the background of the diff gutter/margin to match
+          'diffEditor.insertedTextBackground': '#10b98120',
+          'diffEditor.removedTextBackground': '#ef444420',
+        }
+      });
+    }
   } catch (e) {
     // Ignore if already defined
   }
 
   editor.updateOptions({ theme: 'my-custom-dark' });
-  monaco.editor.setTheme('my-custom-dark');
 
   nextTick(() => {
     setTimeout(() => {
@@ -130,7 +148,9 @@ function handleClose() {
 
       <!-- Monaco Diff Container -->
       <div class="flex-1 w-full overflow-hidden relative bg-[#0b0f1a]">
-        <DiffEditor
+        <component
+          :is="DiffEditorComponent"
+          v-if="DiffEditorComponent"
           ref="diffEditorRef"
           v-model:value="currentModified"
           :original="originalCode"

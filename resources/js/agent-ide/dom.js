@@ -58,4 +58,13 @@ export const dom = {
     terminalPromptCwd: document.getElementById('terminal-prompt-cwd'),
     terminalTabShell: document.getElementById('terminal-tab-shell'),
     terminalTabKernel: document.getElementById('terminal-tab-kernel'),
+
+    // Upload modal
+    uploadModal: document.getElementById('upload-modal'),
+    uploadModalFile: document.getElementById('upload-modal-file'),
+    uploadModalDir: document.getElementById('upload-modal-dir'),
+
+    // Delete confirm modal
+    deleteConfirmModal: document.getElementById('delete-confirm-modal'),
+    deleteConfirmMessage: document.getElementById('delete-confirm-message'),
 };

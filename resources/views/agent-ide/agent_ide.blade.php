@@ -159,6 +159,10 @@
                     <button id="btn-refresh-tree" title="Refresh" class="w-6 h-6 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200 flex items-center justify-center transition">
                         <i class="fa-solid fa-rotate text-xs"></i>
                     </button>
+                    <button id="btn-upload" title="Upload" class="w-6 h-6 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200 flex items-center justify-center transition">
+                        <i class="fa-solid fa-upload text-xs"></i>
+                    </button>
+                    <input type="file" id="upload-file-input" class="hidden" />
                 </div>
             </div>
 
@@ -1585,10 +1589,38 @@
                 }
             });
 
+            // Upload handler
+            document.getElementById('btn-upload').addEventListener('click', () => {
+                document.getElementById('upload-file-input').click();
+            });
+            document.getElementById('upload-file-input').addEventListener('change', async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const formData = new FormData();
+                formData.append('upload', file);
+                formData.append('targetDirectory', '');
+                try {
+                    const res = await fetch('{{ route('ide.api.file.upload') }}', {
+                        method: 'POST',
+                        headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
+                        body: formData,
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        showNotification('Upload berhasil');
+                        fetchTree();
+                    } else {
+                        showNotification('Gagal upload: ' + (data.error || ''), true);
+                    }
+                } catch (err) {
+                    showNotification('Error upload: ' + err, true);
+                }
+                e.target.value = '';
+            });
+
             // Notification toast helper
             function showNotification(msg, isError = false) {
                 const toast = document.createElement('div');
-                toast.className = `fixed bottom-8 right-8 z-50 px-4 py-2.5 rounded-lg text-xs font-semibold shadow-2xl flex items-center gap-2 border transition-all duration-300 transform translate-y-2 opacity-0 ${isError ? 'bg-red-950 border-red-500 text-red-200' : 'bg-slate-900 border-indigo-500 text-indigo-200'}`;
                 toast.innerHTML = `<i class="fa-solid ${isError ? 'fa-triangle-exclamation text-red-400' : 'fa-circle-check text-emerald-400'}"></i> <span>${escapeHtml(msg)}</span>`;
                 document.body.appendChild(toast);
 

@@ -1,7 +1,19 @@
 <script setup lang="ts">
-import { computed, inject, nextTick, onMounted, onBeforeUnmount, ref, watch } from 'vue';
-import { CodeEditor } from 'monaco-editor-vue3';
-import * as monaco from 'monaco-editor';
+import { computed, inject, nextTick, onMounted, onBeforeUnmount, ref, shallowRef, watch } from 'vue';
+// Import monaco-editor lazily only in browser to avoid SSR "define is not defined" error
+let monaco: typeof import('monaco-editor') | undefined;
+const isBrowser = typeof window !== 'undefined';
+
+async function loadMonaco() {
+  if (!monaco && isBrowser) {
+    const mod = await import('monaco-editor');
+    monaco = mod;
+  }
+  return monaco;
+}
+
+const CodeEditorComponent = shallowRef<any>(null);
+
 import TerminalDrawer from './TerminalDrawer.vue';
 import DiffViewer from './DiffViewer.vue';
 import type { IdeApi } from '@/composables/useIdeApi';
@@ -35,12 +47,15 @@ const editorLanguage = computed(() => {
 
 const currentTheme = ref('my-custom-dark');
 
-const handleEditorMount = () => {
-  monaco.editor.defineTheme('my-custom-dark', {
-    base: 'vs-dark', inherit: true, rules: [],
-    colors: { 'editor.background': '#0b0f1a' }
-  });
-  monaco.editor.setTheme('my-custom-dark');
+const handleEditorMount = async () => {
+  const mon = await loadMonaco();
+  if (mon && isBrowser) {
+    mon.editor.defineTheme('my-custom-dark', {
+      base: 'vs-dark', inherit: true, rules: [],
+      colors: { 'editor.background': '#0b0f1a' }
+    });
+    monaco.editor.setTheme('my-custom-dark');
+  }
 };
 
 watch(() => state.activeTabPath.value, (newPath) => {
@@ -135,11 +150,15 @@ function closeDiff() {
 // --- Event Listeners ---
 const handleOpenDiffEvent = (e: Event) => openDiff((e as CustomEvent).detail);
 
-onMounted(() => {
+onMounted(async () => {
+  const mod = await import('monaco-editor-vue3');
+  CodeEditorComponent.value = mod.CodeEditor;
+
   window.addEventListener('keydown', e => {
     if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveCurrent(); }
     else if (e.key === 'F5' || ((e.ctrlKey || e.metaKey) && e.key === 'Enter')) { e.preventDefault(); runActive(); }
   });
+
   window.addEventListener('ide:save-active', saveCurrent);
   window.addEventListener('ide:run-active', runActive);
 
@@ -193,8 +212,9 @@ onBeforeUnmount(() => {
     <!-- Editor Work Area -->
     <div class="flex-1 relative overflow-hidden flex flex-col bg-[#0c101c]">
       <div class="flex-1 relative h-full overflow-hidden">
-        <CodeEditor
-          v-if="activeTab"
+        <component
+          :is="CodeEditorComponent"
+          v-if="activeTab && CodeEditorComponent"
           :key="`${activeTab.path}::${editorLanguage}`"
           ref="editorRef"
           v-model:value="code"

@@ -3,7 +3,7 @@
 import { api } from './api.js';
 import { dom } from './dom.js';
 import { state } from './state.js';
-import { showNotification } from './utils.js';
+import { escapeHtml, showNotification } from './utils.js';
 import { updateLineNumbers, updateCharCount } from './editor.js';
 
 export function setTargetDirectory(dirPath) {
@@ -55,6 +55,50 @@ export function renderTree(items, container, level = 0) {
 
         const hasChildren = item.isDir && Array.isArray(item.children) && item.children.length > 0;
 
+        // Inline rename mode: replace the name with an input.
+        if (state.renamingPath === item.path) {
+            row.innerHTML = `
+                <div class="flex items-center gap-1.5 flex-1">
+                    ${item.isDir
+                        ? '<i class="fa-solid fa-folder text-amber-400 text-xs"></i>'
+                        : (item.extension ? getFileIcon(item.extension, item.name) : '<i class="fa-regular fa-file-code text-slate-400"></i>')}
+                    <input type="text" id="rename-input-${item.path.replace(/\//g, '-')}" value="${escapeHtml(state.renameValue)}"
+                        class="flex-1 bg-slate-900 border border-indigo-500 rounded px-1.5 py-0.5 text-xs text-slate-200 outline-none">
+                </div>
+            `;
+            container.appendChild(row);
+            const input = row.querySelector('input');
+            input.focus();
+            input.select();
+
+            // Enter = save, Escape = cancel.
+            input.addEventListener('keydown', async (e) => {
+                e.stopPropagation();
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const newName = input.value.trim();
+                    if (newName && newName !== item.name) {
+                        await commitRename(item.path, newName);
+                    } else {
+                        cancelRename();
+                    }
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    cancelRename();
+                }
+            });
+            // Click outside = cancel (single document listener removed after first interaction).
+            const onOutside = (ev) => {
+                if (!row.contains(ev.target)) {
+                    document.removeEventListener('click', onOutside);
+                    cancelRename();
+                }
+            };
+            // Use setTimeout so the current click doesn't immediately cancel.
+            setTimeout(() => document.addEventListener('click', onOutside), 0);
+            return;
+        }
+
         if (item.isDir) {
             row.innerHTML = `
                 <div class="flex items-center gap-1.5 truncate flex-1">
@@ -64,11 +108,19 @@ export function renderTree(items, container, level = 0) {
                     <i class="fa-solid fa-folder text-amber-400 text-xs"></i>
                     <span class="font-medium text-slate-200 truncate">${item.name}/</span>
                 </div>
-                <button title="Set as AI Target Directory" class="btn-set-target opacity-0 group-hover:opacity-100 px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-400 hover:text-white text-[9px] border border-indigo-500/30">
-                    Target
-                </button>
+                <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+                    <button title="Set as AI Target Directory" class="btn-set-target px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-400 hover:text-white text-[9px] border border-indigo-500/30">
+                        Target
+                    </button>
+                    <button title="Rename" class="btn-rename px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 hover:text-slate-200 text-[9px] border border-slate-700">
+                        <i class="fa-solid fa-pen"></i>
+                    </button>
+                    <button title="Delete" class="btn-delete px-1.5 py-0.5 rounded bg-rose-950 text-rose-400 hover:text-white text-[9px] border border-rose-500/30">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </div>
             `;
-
+            // ... existing folder click handler ...
             const childContainer = document.createElement('div');
             childContainer.className = 'hidden space-y-0.5';
 
@@ -79,24 +131,37 @@ export function renderTree(items, container, level = 0) {
                         showNotification(`Target folder set to /${item.path}`);
                         return;
                     }
+                    if (e.target.closest('.btn-rename')) {
+                        e.stopPropagation();
+                        startRename(item.path, item.name);
+                        return;
+                    }
+                    if (e.target.closest('.btn-delete')) {
+                        e.stopPropagation();
+                        confirmDelete(item.path, true);
+                        return;
+                    }
                     const isHidden = childContainer.classList.contains('hidden');
                     const arrow = row.querySelector('.dir-arrow');
                     if (isHidden) {
                         childContainer.classList.remove('hidden');
-                        // down arrow (expanded) -> up arrow (collapse affordance)
                         arrow.classList.remove('-rotate-90');
                     } else {
                         childContainer.classList.add('hidden');
-                        // collapsed state shows down arrow rotated to point right/down
                         arrow.classList.add('-rotate-90');
                     }
                 });
             } else {
-                row.classList.add('opacity-70');
                 row.addEventListener('click', (e) => {
                     if (e.target.closest('.btn-set-target')) {
                         setTargetDirectory(item.path);
                         showNotification(`Target folder set to /${item.path}`);
+                    } else if (e.target.closest('.btn-rename')) {
+                        e.stopPropagation();
+                        startRename(item.path, item.name);
+                    } else if (e.target.closest('.btn-delete')) {
+                        e.stopPropagation();
+                        confirmDelete(item.path, true);
                     }
                 });
             }
@@ -112,8 +177,28 @@ export function renderTree(items, container, level = 0) {
                     ${getFileIcon(item.extension, item.name)}
                     <span class="text-slate-300 truncate">${item.name}</span>
                 </div>
+                <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+                    <button title="Rename" class="btn-rename px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 hover:text-slate-200 text-[9px] border border-slate-700">
+                        <i class="fa-solid fa-pen"></i>
+                    </button>
+                    <button title="Delete" class="btn-delete px-1.5 py-0.5 rounded bg-rose-950 text-rose-400 hover:text-white text-[9px] border border-rose-500/30">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </div>
             `;
-            row.addEventListener('click', () => openFile(item.path));
+            row.addEventListener('click', (e) => {
+                if (e.target.closest('.btn-rename')) {
+                    e.stopPropagation();
+                    startRename(item.path, item.name);
+                    return;
+                }
+                if (e.target.closest('.btn-delete')) {
+                    e.stopPropagation();
+                    confirmDelete(item.path, false);
+                    return;
+                }
+                openFile(item.path);
+            });
             container.appendChild(row);
         }
     });
@@ -277,4 +362,90 @@ export function getActiveTab() {
 export function initFileTree() {
     document.getElementById('btn-refresh-tree').addEventListener('click', fetchTree);
     document.getElementById('btn-reset-target-dir').addEventListener('click', () => setTargetDirectory(''));
+}
+
+// ── Inline rename ──────────────────────────────────────────────────────
+
+export function startRename(path, currentName) {
+    state.renamingPath = path;
+    state.renameValue = currentName;
+    renderTree(state.projectTree, dom.fileTreeContainer);
+}
+
+function cancelRename() {
+    state.renamingPath = null;
+    state.renameValue = '';
+    renderTree(state.projectTree, dom.fileTreeContainer);
+}
+
+async function commitRename(oldPath, newName) {
+    try {
+        const data = await api.renameItem(oldPath, newName);
+        if (data.success) {
+            // Update any open tab whose path matched the old path.
+            const tab = state.openTabs.find((t) => t.path === oldPath);
+            if (tab) {
+                tab.path = data.newPath;
+                if (state.activeTabPath === oldPath) {
+                    state.activeTabPath = data.newPath;
+                    dom.currentFilePath.textContent = data.newPath;
+                }
+            }
+            state.renamingPath = null;
+            state.renameValue = '';
+            await fetchTree();
+            renderTabs();
+            showNotification(`Renamed to ${newName}`);
+        } else {
+            showNotification(data.error || 'Rename failed', true);
+            cancelRename();
+        }
+    } catch (err) {
+        showNotification('Network error during rename', true);
+        cancelRename();
+    }
+}
+
+// ── Delete confirmation ────────────────────────────────────────────────
+
+export function confirmDelete(path, isDir) {
+    state.deleteTarget = { path, isDir };
+    const name = path.split('/').pop();
+    dom.deleteConfirmMessage.innerHTML = isDir
+        ? `Delete folder <strong class="text-slate-200">${escapeHtml(name)}</strong> and all its contents? This cannot be undone.`
+        : `Delete file <strong class="text-slate-200">${escapeHtml(name)}</strong>? This cannot be undone.`;
+    dom.deleteConfirmModal.classList.remove('hidden');
+}
+
+export function cancelDelete() {
+    state.deleteTarget = null;
+    dom.deleteConfirmModal.classList.add('hidden');
+}
+
+export async function executeDelete() {
+    if (!state.deleteTarget) return;
+    const { path } = state.deleteTarget;
+    cancelDelete();
+
+    try {
+        const data = await api.deleteItem(path);
+        if (data.success) {
+            // Close any tab that was viewing this file.
+            const idx = state.openTabs.findIndex((t) => t.path === path);
+            if (idx !== -1) {
+                state.openTabs.splice(idx, 1);
+                if (state.openTabs.length > 0) {
+                    switchTab(state.openTabs[state.openTabs.length - 1].path);
+                } else {
+                    switchTab(null);
+                }
+            }
+            await fetchTree();
+            showNotification('Deleted successfully');
+        } else {
+            showNotification(data.error || 'Delete failed', true);
+        }
+    } catch (err) {
+        showNotification('Network error during delete', true);
+    }
 }

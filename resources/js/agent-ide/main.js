@@ -7,7 +7,7 @@ import { state } from './state.js';
 import { showNotification } from './utils.js';
 import { configureMarkdown } from './markdown.js';
 import { initSettings } from './settings.js';
-import { initFileTree, fetchTree, openFile, renderTabs, closeTab, openOrCreateTab } from './fileTree.js';
+import { initFileTree, fetchTree, openFile, renderTabs, closeTab, openOrCreateTab, confirmDelete, cancelDelete, executeDelete } from './fileTree.js';
 import { initEditor } from './editor.js';
 import { initTerminal, fetchKernels, runCodeInKernel } from './terminal.js';
 import { initModals } from './modals.js';
@@ -32,7 +32,7 @@ initSettings();
 initFileTree();
 initEditor({ runActiveCode, renderTabs, fetchTree, closeTab, openOrCreateTab });
 initTerminal();
-initModals({ fetchTree, openFile });
+initModals({ fetchTree, openFile, confirmDelete, cancelDelete, executeDelete });
 initChat();
 
 fetchTree();

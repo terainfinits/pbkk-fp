@@ -82,4 +82,57 @@ class FileController extends Controller
 
         return response()->json(['success' => true, 'message' => 'Deleted successfully', 'path' => $deletedPath]);
     }
+
+    /**
+     * Rename an existing file or directory. Only the final name changes;
+     * the parent directory stays the same.
+     *
+     * POST /ide/api/file/rename
+     * Body: { path: string, newName: string }
+     */
+    public function rename(Request $request)
+    {
+        $path = $request->input('path');
+        $newName = $request->input('newName');
+
+        if (!$path || !$newName) {
+            return response()->json(['success' => false, 'error' => 'Path and new name are required'], 400);
+        }
+
+        $newPath = $this->files->renameItem($path, $newName);
+        if ($newPath === null) {
+            return response()->json(['success' => false, 'error' => 'Rename failed. Check name validity, duplicates, or permissions.'], 400);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Renamed successfully',
+            'oldPath' => $path,
+            'newPath' => $newPath,
+        ]);
+    }
+
+    /**
+     * Upload a single file or a .zip archive into the workspace.
+     *
+     * POST /ide/api/file/upload  (multipart/form-data)
+     * Body: { upload: File, targetDirectory: string }
+     */
+    public function upload(Request $request)
+    {
+        $file = $request->file('upload');
+        $targetDirectory = $request->input('targetDirectory', '');
+
+        $result = $this->files->uploadFile($file, $targetDirectory);
+
+        if (!$result['ok']) {
+            return response()->json(['success' => false, 'error' => $result['error']], 400);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Upload completed successfully',
+            'path' => $result['path'],
+        ]);
+    }
 }

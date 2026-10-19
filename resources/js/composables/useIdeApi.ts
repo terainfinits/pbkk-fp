@@ -6,6 +6,8 @@ export interface IdeRoutes {
   fileSave: string;
   fileCreate: string;
   fileDelete: string;
+  fileRename: string;
+  fileUpload: string;
   kernels: string;
   codeRun: string;
   agentPrompt: string;
@@ -14,16 +16,18 @@ export interface IdeRoutes {
 }
 
 export const defaultRoutes: IdeRoutes = {
-  tree: '/api/ide/tree',
-  fileRead: '/api/ide/file/read',
-  fileSave: '/api/ide/file/save',
-  fileCreate: '/api/ide/file/create',
-  fileDelete: '/api/ide/file/delete',
-  kernels: '/api/ide/kernels',
-  codeRun: '/api/ide/code/run',
-  agentPrompt: '/api/ide/agent/prompt',
+  tree: '/ide/api/tree',
+  fileRead: '/ide/api/file/read',
+  fileSave: '/ide/api/file/save',
+  fileCreate: '/ide/api/file/create',
+  fileDelete: '/ide/api/file/delete',
+  fileRename: '/ide/api/file/rename',
+  fileUpload: '/ide/api/file/upload',
+  kernels: '/ide/api/kernels',
+  codeRun: '/ide/api/code/run',
+  agentPrompt: '/ide/api/agent/prompt',
   chats: '/ide/api/chats',
-  terminalExecute: '/api/ide/terminal/execute',
+  terminalExecute: '/ide/api/terminal/execute',
 };
 
 function csrf(): string {
@@ -78,6 +82,25 @@ export function createIdeApi(routes: IdeRoutes) {
     saveFile: (path: string, content: string) => post(routes.fileSave, { path, content }),
     createFile: (path: string, type: 'file' | 'directory', content = '') =>
       post(routes.fileCreate, { path, type, content }),
+    renameFile: (path: string, newName: string) =>
+      post(routes.fileRename, { path, newName }),
+    uploadFile: (file: File, targetDirectory: string) => {
+      const formData = new FormData();
+      formData.append('upload', file);
+      formData.append('targetDirectory', targetDirectory || '');
+      return fetch(routes.fileUpload, {
+        method: 'POST',
+        headers: {
+          'X-CSRF-TOKEN': csrf(),
+        },
+        body: formData,
+      }).then(async (res) => {
+        const ct = res.headers.get('content-type') || '';
+        if (ct.includes('application/json')) return res.json();
+        const text = await res.text();
+        return { success: false, error: text || `HTTP ${res.status}` };
+      });
+    },
     deleteFile: (path: string) => post(routes.fileDelete, { path }),
     fetchKernels: () => get(routes.kernels),
     runCode: (code: string, language: string, path = '') =>

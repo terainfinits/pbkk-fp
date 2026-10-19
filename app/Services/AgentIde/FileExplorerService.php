@@ -199,4 +199,140 @@ class FileExplorerService {
 
         return str_replace('\\', '/', $relativePath);
     }
+
+    /**
+     * Rename an existing file or directory. Only the final name changes;
+     * the parent directory stays the same. Returns the new relative path
+     * on success, or null on failure.
+     */
+    public function renameItem(string $relativePath, string $newName): ?string {
+        $fullPath = $this->resolveExistingPath($relativePath);
+        if (!$fullPath) {
+            return null;
+        }
+
+        // Reject empty or traversal-sounding names.
+        $cleanName = ltrim(str_replace(['/', '\\'], '', $newName), '.');
+        if ($cleanName === '') {
+            return null;
+        }
+
+        $parentDir = dirname($fullPath);
+        $newFullPath = $parentDir . DIRECTORY_SEPARATOR . $cleanName;
+
+        // Safety: must stay inside basePath.
+        $basePath = $this->basePath();
+        if (!str_starts_with($newFullPath, $basePath)) {
+            return null;
+        }
+
+        if (file_exists($newFullPath)) {
+            return null;
+        }
+
+        if (!@rename($fullPath, $newFullPath)) {
+            return null;
+        }
+
+        // Return the new relative path (forward-slash normalised).
+        $rel = str_replace('\\', '/', ltrim(str_replace($basePath, '', $newFullPath), '/\\'));
+        return $rel;
+    }
+
+    /**
+     * Upload a single file or extract a .zip archive into the workspace.
+     *
+     * @param  \Illuminate\Http\UploadedFile  $file
+     * @param  string  $targetDirectory  Relative directory inside basePath (may be empty).
+     * @return array{ok:bool, path?:string, error?:string}
+     */
+    public function uploadFile($file, string $targetDirectory = ''): array {
+        if (!$file || !$file->isValid()) {
+            return ['ok' => false, 'error' => 'Invalid file upload.'];
+        }
+
+        $originalName = $file->getClientOriginalName();
+        $cleanName = basename($originalName);
+        if ($cleanName === '') {
+            return ['ok' => false, 'error' => 'Invalid file name.'];
+        }
+
+        $isZip = strtolower(pathinfo($cleanName, PATHINFO_EXTENSION)) === 'zip';
+
+        // Resolve target directory safely.
+        [$cleanRelDir, $fullDir] = $this->safeNewPath($targetDirectory);
+        if (!is_dir($fullDir)) {
+            mkdir($fullDir, 0755, true);
+        }
+
+        $basePath = $this->basePath();
+
+        if (!$isZip) {
+            $dest = $fullDir . DIRECTORY_SEPARATOR . $cleanName;
+            if (file_exists($dest)) {
+                return ['ok' => false, 'error' => 'A file with that name already exists.'];
+            }
+            if (!is_writable($fullDir)) {
+                return ['ok' => false, 'error' => 'Directory not writable: ' . $fullDir];
+            }
+            try {
+                $file->move($fullDir, $cleanName);
+            } catch (\Throwable $e) {
+                return ['ok' => false, 'error' => 'Failed to save file: ' . $e->getMessage()];
+            }
+            $rel = str_replace('\\', '/', ltrim(str_replace($basePath, '', $dest), '/\\'));
+            return ['ok' => true, 'path' => $rel];
+        }
+
+        // --- ZIP handling ---
+        $tempZip = tempnam(sys_get_temp_dir(), 'upload_') . '.zip';
+        $file->move(dirname($tempZip), basename($tempZip));
+
+        $zip = new \ZipArchive();
+        if ($zip->open($tempZip) !== true) {
+            @unlink($tempZip);
+            return ['ok' => false, 'error' => 'Invalid or corrupt ZIP archive.'];
+        }
+
+        // Zip-slip protection + size guard.
+        $maxBytes = 100 * 1024 * 1024; // 100 MB ceiling
+        $totalExtracted = 0;
+        $entries = [];
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $stat = $zip->statIndex($i);
+            if ($stat === false) {
+                @unlink($tempZip);
+                return ['ok' => false, 'error' => 'Corrupt ZIP entry detected.'];
+            }
+            $name = $stat['name'];
+            // Reject absolute paths and traversal.
+            if (preg_match('/^([A-Za-z]:[\\\\\/]|[\/\\\\])/', $name) || str_contains($name, '../') || str_contains($name, '..\\')) {
+                @unlink($tempZip);
+                return ['ok' => false, 'error' => 'ZIP contains unsafe path: ' . $name];
+            }
+            $totalExtracted += $stat['size'];
+            if ($totalExtracted > $maxBytes) {
+                @unlink($tempZip);
+                return ['ok' => false, 'error' => 'ZIP extraction size exceeds allowed limit.'];
+            }
+            $entries[] = $name;
+        }
+
+        // No silent overwrite: check every entry first.
+        foreach ($entries as $entry) {
+            $dest = $fullDir . DIRECTORY_SEPARATOR . $entry;
+            if (file_exists($dest)) {
+                @unlink($tempZip);
+                return ['ok' => false, 'error' => 'An item with that name already exists in the target directory.'];
+            }
+        }
+
+        // Extract.
+        $zip->extract($fullDir);
+        $zip->close();
+        @unlink($tempZip);
+
+        $rel = str_replace('\\', '/', ltrim(str_replace($basePath, '', $fullDir), '/\\'));
+        return ['ok' => true, 'path' => $rel];
+    }
 }

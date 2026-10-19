@@ -10,7 +10,7 @@ interface TreeNodeItem {
 }
 
 const props = defineProps<{ item: TreeNodeItem; level: number }>();
-const emit = defineEmits<{ select: [path: string]; target: [path: string] }>();
+const emit = defineEmits<{ select: [path: string]; target: [path: string]; rename: [path: string]; delete: [path: string, isDir: boolean] }>();
 
 // Folder expand/collapse state (local to this node)
 const open = ref(false);
@@ -63,14 +63,30 @@ function iconFor(ext: string, name: string) {
           class="truncate"
         >{{ item.name }}{{ item.isDir ? '/' : '' }}</span>
       </div>
-      <button
-        v-if="item.isDir"
-        title="Set as AI Target Directory"
-        class="opacity-0 group-hover:opacity-100 px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-400 hover:text-white text-[9px] border border-indigo-500/30"
-        @click.stop="emit('target', item.path!)"
-      >
-        Target
-      </button>
+      <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+        <button
+          v-if="item.isDir"
+          title="Set as AI Target Directory"
+          class="px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-400 hover:text-white text-[9px] border border-indigo-500/30"
+          @click.stop="emit('target', item.path!)"
+        >
+          Target
+        </button>
+        <button
+          title="Rename"
+          class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 hover:text-slate-200 text-[9px] border border-slate-700"
+          @click.stop="emit('rename', item.path!)"
+        >
+          <i class="fa-solid fa-pen"></i>
+        </button>
+        <button
+          title="Delete"
+          class="px-1.5 py-0.5 rounded bg-rose-950 text-rose-400 hover:text-white text-[9px] border border-rose-500/30"
+          @click.stop="emit('delete', item.path!, !!item.isDir)"
+        >
+          <i class="fa-solid fa-trash-can"></i>
+        </button>
+      </div>
     </div>
     <div v-if="item.isDir && open && item.children?.length" class="space-y-0.5">
       <TreeNode

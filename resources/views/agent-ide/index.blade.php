@@ -40,6 +40,8 @@
 
     @include('agent-ide.partials.settings-modal')
     @include('agent-ide.partials.create-modal')
+    @include('agent-ide.partials.upload-modal')
+    @include('agent-ide.partials.delete-confirm-modal')
 
     {{--
         The JS modules are static assets and can't call the Blade `route()`
@@ -53,6 +55,8 @@
             fileSave: "{{ route('ide.api.file.save') }}",
             fileCreate: "{{ route('ide.api.file.create') }}",
             fileDelete: "{{ route('ide.api.file.delete') }}",
+            fileRename: "{{ route('ide.api.file.rename') }}",
+            fileUpload: "{{ route('ide.api.file.upload') }}",
             kernels: "{{ route('ide.api.kernels') }}",
             codeRun: "{{ route('ide.api.code.run') }}",
             agentPrompt: "{{ route('ide.api.agent.prompt') }}",
