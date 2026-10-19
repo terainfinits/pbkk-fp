@@ -9,6 +9,7 @@ namespace App\Services\AgentIde;
  */
 class AgentResponseFormatter
 {
+    /** @return array<string, mixed> */
     public function format(string $rawText, string $provider, string $model, ?string $targetFile, ?string $targetDirectory, string $prompt = ''): array
     {
         $suggestedPath = $this->deriveTargetPath($rawText, $prompt, $targetFile, $targetDirectory);
@@ -30,7 +31,7 @@ class AgentResponseFormatter
             'code' => $code,
             'language' => $language,
             'targetPath' => $suggestedPath,
-            'hasDiff' => !empty($code),
+            'hasDiff' => ! empty($code),
         ];
     }
 
@@ -41,7 +42,7 @@ class AgentResponseFormatter
             $defaultFilename = $pm[1];
         }
 
-        $suggestedPath = $targetFile ?: ($targetDirectory ? rtrim($targetDirectory, '/\\') . '/' . $defaultFilename : 'app/Services/' . $defaultFilename);
+        $suggestedPath = $targetFile ?: ($targetDirectory ? rtrim($targetDirectory, '/\\').'/'.$defaultFilename : 'app/Services/'.$defaultFilename);
 
         if (preg_match('/###\s*\[FILE:\s*([^\]]+)\]/i', $rawText, $matchPath)) {
             $suggestedPath = trim($matchPath[1]);
@@ -50,6 +51,7 @@ class AgentResponseFormatter
         return $suggestedPath;
     }
 
+    /** @return array{string, string} */
     private function extractCodeBlock(string $rawText): array
     {
         if (preg_match('/```([a-zA-Z0-9_-]+)?\r?\n([\s\S]*?)```/', $rawText, $codeMatch)) {

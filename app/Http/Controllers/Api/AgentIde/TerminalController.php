@@ -9,8 +9,7 @@ use Illuminate\Http\Request;
 
 class TerminalController extends Controller
 {
-    public function __construct(private TerminalService $terminal) {
-    }
+    public function __construct(private TerminalService $terminal) {}
 
     /**
      * Execute a shell command and return the output.
@@ -20,8 +19,9 @@ class TerminalController extends Controller
      */
     public function execute(Request $request): JsonResponse
     {
+        $request->validate(['command' => 'required|string|max:8192', 'cwd' => 'nullable|string|max:1024']);
         $command = $request->input('command', '');
-        $cwd     = $request->input('cwd') ?? '';
+        $cwd = $request->input('cwd') ?? '';
 
         if (empty(trim($command))) {
             return response()->json(['success' => false, 'error' => 'No command provided'], 400);
@@ -30,12 +30,12 @@ class TerminalController extends Controller
         $result = $this->terminal->execute($command, $cwd);
 
         return response()->json([
-            'success'         => true,
-            'stdout'          => $result['stdout'] ?? '',
-            'stderr'          => $result['stderr'] ?? '',
-            'exitCode'        => $result['exitCode'] ?? -1,
+            'success' => true,
+            'stdout' => $result['stdout'] ?? '',
+            'stderr' => $result['stderr'] ?? '',
+            'exitCode' => $result['exitCode'] ?? -1,
             'executionTimeMs' => $result['executionTimeMs'] ?? 0,
-            'cwd'             => $result['cwd'] ?? $cwd,
+            'cwd' => $result['cwd'] ?? $cwd,
         ]);
     }
 }

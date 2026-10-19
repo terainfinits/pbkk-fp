@@ -1,6 +1,7 @@
 import { createInertiaApp } from '@inertiajs/vue3';
+import '../css/app.css';
 
-const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+const appName = import.meta.env.VITE_APP_NAME || 'Magentic IDE';
 
 void createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),

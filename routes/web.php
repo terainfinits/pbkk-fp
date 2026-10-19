@@ -3,51 +3,36 @@
 use App\Http\Controllers\AgentIdeController;
 use App\Http\Controllers\Api\AgentIde\ChatController;
 use App\Http\Controllers\Api\AgentIde\FileController;
+use App\Http\Controllers\Api\AgentIde\InteractivePythonController;
 use App\Http\Controllers\Api\AgentIde\KernelController;
-use App\Http\Controllers\CalculatorController;
-use App\Http\Controllers\PageController;
+use App\Http\Controllers\Api\AgentIde\TerminalController;
+use App\Http\Controllers\AuthController;
 use Illuminate\Support\Facades\Route;
 
-/* route konek dg class & method di file controller */
-Route::get('/', [PageController::class, 'index'])->name('home');
+Route::middleware('guest')->group(function () {
+    Route::get('/login', [AuthController::class, 'login'])->name('login');
+    Route::post('/login', [AuthController::class, 'authenticate'])->middleware('throttle:login');
+    Route::get('/register', [AuthController::class, 'register'])->name('register');
+    Route::post('/register', [AuthController::class, 'store'])->middleware('throttle:registration');
+});
 
-/* route konek jg dg url*/
-Route::get('/agent/{tema?}', [PageController::class, 'agent'])->name('agent.idea');
-Route::get('/mahasiswa/{nrp}', [PageController::class, 'mahasiswaDetail'])
-    ->where('nrp', '[0-9]{10}')
-    ->name('mahasiswa.detail');
-Route::get('/hitung-ipk/{ip1?}/{ip2?}', [CalculatorController::class, 'calculateIpk'])->name('calculator.ipk');
-
-
-/* grouping routes url formatnya "domainnya/ide/sesuatu" */
-Route::prefix('ide')->name('ide.')->group(function () {
-    Route::get('/', [AgentIdeController::class, 'index'])->name('index'); 
-
-    Route::prefix('api')->name('api.')->group(function () {
+Route::middleware('auth')->group(function () {
+    Route::get('/', [AgentIdeController::class, 'index'])->name('ide.index');
+    Route::redirect('/ide', '/');
+    Route::post('/logout', [AuthController::class, 'destroy'])->name('logout');
+    Route::prefix('ide/api')->name('ide.api.')->group(function () {
         Route::get('/tree', [FileController::class, 'tree'])->name('tree');
         Route::post('/file/read', [FileController::class, 'read'])->name('file.read');
         Route::post('/file/save', [FileController::class, 'save'])->name('file.save');
         Route::post('/file/create', [FileController::class, 'create'])->name('file.create');
         Route::post('/file/delete', [FileController::class, 'delete'])->name('file.delete');
-
         Route::get('/kernels', [KernelController::class, 'index'])->name('kernels');
-        Route::post('/code/run', [KernelController::class, 'run'])->name('code.run');
-
+        Route::post('/code/run', [KernelController::class, 'run'])->middleware('throttle:execution')->name('code.run');
+        Route::post('/code/python/start', [InteractivePythonController::class, 'start'])->middleware('throttle:execution')->name('python.start');
+        Route::get('/code/python/status', [InteractivePythonController::class, 'status'])->name('python.status');
+        Route::post('/code/python/input', [InteractivePythonController::class, 'input'])->name('python.input');
+        Route::post('/code/python/stop', [InteractivePythonController::class, 'stop'])->name('python.stop');
         Route::post('/agent/prompt', [ChatController::class, 'prompt'])->name('agent.prompt');
-
-        Route::post('/terminal/execute', [\App\Http\Controllers\Api\AgentIde\TerminalController::class, 'execute'])->name('terminal.execute');
+        Route::post('/terminal/execute', [TerminalController::class, 'execute'])->middleware('throttle:execution')->name('terminal.execute');
     });
 });
-
-Route::prefix('dashboard')->name('dashboard.')->group(function () {
-    Route::get('/', [PageController::class, 'index'])->name('home');
-    Route::get('/mahasiswa/{nrp}', [PageController::class, 'mahasiswaDetail'])
-        ->where('nrp', '[0-9]{10}')
-        ->name('mahasiswa.detail');
-});
-
-/* fallback kalo ngga ada yg sesuai di route atas*/
-Route::fallback(function () {
-    return view('errors.404');
-});
-

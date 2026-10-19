@@ -7,6 +7,7 @@ use App\Services\AgentIde\AgentContextBuilder;
 use App\Services\AgentIde\AgentResponseFormatter;
 use App\Services\AgentIde\FallbackAgentResponder;
 use App\Services\AgentIde\LlmProviderService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -17,16 +18,22 @@ class ChatController extends Controller
         private LlmProviderService $llm,
         private AgentResponseFormatter $formatter,
         private FallbackAgentResponder $fallback,
-    ) {
-    }
+    ) {}
 
     /**
      * Connect to the chosen LLM provider (or fall back to the built-in
      * canned engine when no API key is present) and return a structured
      * agentic response for the chatbot UI.
      */
-    public function prompt(Request $request)
+    public function prompt(Request $request): JsonResponse
     {
+        $request->validate([
+            'provider' => 'required|string|max:30', 'model' => 'required|string|max:100',
+            'prompt' => 'required|string|max:20000', 'apiKey' => 'nullable|string|max:2000',
+            'targetDirectory' => 'nullable|string|max:1024', 'targetFile' => 'nullable|string|max:1024',
+            'currentCode' => 'nullable|string|max:200000', 'history' => 'nullable|array|max:50',
+            'history.*.role' => 'required|in:user,assistant', 'history.*.content' => 'required|string|max:20000',
+        ]);
         $provider = $request->input('provider', 'ollama_cloud');
         $model = $request->input('model', 'kimi-k2.7-code');
         $prompt = $request->input('prompt', '');
@@ -43,15 +50,15 @@ class ChatController extends Controller
         $systemContext = $this->contextBuilder->build($targetDirectory, $targetFile, $currentCode);
 
         try {
-            if (!empty($apiKey)) {
+            if (! empty($apiKey)) {
                 $response = $this->llm->dispatch($provider, $model, $apiKey, $systemContext, $prompt, $history);
 
-                if (!$response['success']) {
+                if (! $response['success']) {
                     return response()->json(['success' => false, 'error' => $response['error'] ?? 'Live API call failed'], 400);
                 }
 
                 return response()->json(
-                    $this->formatter->format($response['text'], $provider, $model, $targetFile, $targetDirectory, $prompt)
+                    $this->formatter->format($response['text'] ?? '', $provider, $model, $targetFile, $targetDirectory, $prompt)
                 );
             }
 
@@ -59,11 +66,11 @@ class ChatController extends Controller
                 $this->fallback->generate($prompt, $provider, $model, $targetFile, $targetDirectory)
             );
         } catch (\Throwable $e) {
-            Log::error('Agent prompt error: ' . $e->getMessage());
+            Log::error('Agent prompt error: '.$e->getMessage());
 
             return response()->json([
                 'success' => false,
-                'error' => 'Agent processing exception: ' . $e->getMessage(),
+                'error' => 'Agent processing exception: '.$e->getMessage(),
             ], 500);
         }
     }

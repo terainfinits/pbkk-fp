@@ -9,12 +9,7 @@ import { defineConfig, lazyPlugins } from 'vite-plus';
 export default defineConfig({
     plugins: lazyPlugins(() => [
         laravel({
-            input: [ /* sesuaikan file*/
-                'resources/css/app.css', 
-                'resources/js/app.ts',
-                'resources/css/agent-ide.css',
-                'resources/js/agent-ide/main.js',
-            ],
+            input: ['resources/js/app.ts'],
             refresh: true,
             fonts: [
                 bunny('Instrument Sans', {
@@ -44,6 +39,8 @@ export default defineConfig({
                 '**/.cursor/**',
                 '**/.junie/**',
                 '**/vendor/**',
+                '**/folder-generated/**',
+                '**/storage/**',
             ],
         },
     },
@@ -51,6 +48,7 @@ export default defineConfig({
         ignorePatterns: [
             'vendor/**',
             'node_modules/**',
+            'folder-generated/**',
             'public/**',
             'bootstrap/ssr/**',
             'tailwind.config.js',
@@ -73,6 +71,7 @@ export default defineConfig({
         htmlWhitespaceSensitivity: 'css',
         ignorePatterns: [
             '.github/**',
+            'folder-generated/**',
             'composer.json',
             'resources/js/components/ui/*',
             'resources/views/mail/*',

@@ -3,11 +3,11 @@
 namespace App\Http\Controllers;
 
 use Inertia\Inertia;
+use Inertia\Response;
 
 class AgentIdeController extends Controller
 {
-    /* Display the Agentic AI IDE interface (resources/views/agent-ide/index.blade.php). */
-    public function index()
+    public function index(): Response
     {
         return Inertia::render('AgentIdeApp', [
             'routes' => [
@@ -18,6 +18,10 @@ class AgentIdeController extends Controller
                 'fileDelete' => route('ide.api.file.delete'),
                 'kernels' => route('ide.api.kernels'),
                 'codeRun' => route('ide.api.code.run'),
+                'pythonStart' => route('ide.api.python.start'),
+                'pythonStatus' => route('ide.api.python.status'),
+                'pythonInput' => route('ide.api.python.input'),
+                'pythonStop' => route('ide.api.python.stop'),
                 'agentPrompt' => route('ide.api.agent.prompt'),
                 'terminalExecute' => route('ide.api.terminal.execute'),
             ],

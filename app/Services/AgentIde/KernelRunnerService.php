@@ -2,161 +2,75 @@
 
 namespace App\Services\AgentIde;
 
-/**
- * Detects available runtime kernels (Python/PHP/Node) and executes
- * arbitrary code snippets against them in a temporary script file.
- */
+use Illuminate\Support\Facades\File;
+use Symfony\Component\Process\ExecutableFinder;
+use Symfony\Component\Process\Process;
+
 class KernelRunnerService
 {
-    private const SUPPORTED = [
-        'python' => ['py', 'python3'],
-        'py' => ['py', 'python3'],
-        'javascript' => ['js', null],
-        'js' => ['js', null],
-        'node' => ['js', null],
-        'typescript' => ['js', null],
-        'ts' => ['js', null],
-        'php' => ['php', null],
-        'shell' => ['ps1', null],
-        'sh' => ['ps1', null],
-        'bash' => ['ps1', null],
-        'powershell' => ['ps1', null],
-        'ps1' => ['ps1', null],
-        'bat' => ['ps1', null],
-    ];
+    public function __construct(private SandboxService $sandbox, private WorkspaceService $workspace) {}
 
-    public function detectKernels(): array
+    /** @return array{executable: string, version: string}|null */
+    public function pythonRuntime(): ?array
     {
-        $pythonVersion = $this->execVersion('python --version') ?: $this->execVersion('python3 --version');
-        $phpVersion = $this->execVersion('php -v');
-        if ($phpVersion && preg_match('/PHP\s+([0-9.]+)/i', $phpVersion, $m)) {
-            $phpVersion = 'PHP ' . $m[1];
-        }
-        $nodeVersion = $this->execVersion('node -v');
-
-        return [
-            'python' => [
-                'name' => 'Python 3 Kernel',
-                'available' => !empty($pythonVersion),
-                'version' => $pythonVersion ?: 'Not Detected',
-                'executable' => 'python',
-            ],
-            'php' => [
-                'name' => 'PHP Kernel',
-                'available' => !empty($phpVersion),
-                'version' => $phpVersion ?: 'PHP ' . PHP_VERSION,
-                'executable' => 'php',
-            ],
-            'node' => [
-                'name' => 'Node.js Kernel',
-                'available' => !empty($nodeVersion),
-                'version' => $nodeVersion ? 'Node ' . trim($nodeVersion) : 'Not Detected',
-                'executable' => 'node',
-            ],
-        ];
-    }
-
-    private function execVersion(string $command): ?string
-    {
-        try {
-            $output = [];
-            $returnVar = 1;
-            exec($command . ' 2>&1', $output, $returnVar);
-            if ($returnVar === 0 && !empty($output)) {
-                return trim($output[0]);
+        foreach (['python3', 'python'] as $name) {
+            $path = (new ExecutableFinder)->find($name);
+            if (! $path) {
+                continue;
             }
-        } catch (\Throwable) {
-            // Ignore — kernel simply isn't available.
+            $probe = new Process([$path, '--version']);
+            $probe->setTimeout(5);
+            if ($probe->run() === 0 && str_starts_with($version = trim($probe->getOutput()), 'Python 3.')) {
+                return ['executable' => realpath($path) ?: $path, 'version' => $version];
+            }
         }
 
         return null;
     }
 
-    /**
-     * Run a code snippet (or a file on disk when $code is empty) in the
-     * matching kernel and return its stdout/stderr/exit code.
-     */
+    /** @return array<string, array{available: bool, version: string}> */
+    public function detectKernels(): array
+    {
+        $available = $this->sandbox->available();
+        $kernels = [];
+        foreach (['python' => ['/usr/bin/python3', '--version'], 'php' => ['/usr/bin/php', '-v'], 'node' => ['/usr/bin/node', '--version']] as $name => $command) {
+            $version = $available ? $this->sandbox->run($command) : null;
+            $kernels[$name] = ['available' => $version !== null && $version['exitCode'] === 0, 'version' => $version ? (strtok($version['stdout'], "\n") ?: 'Not detected') : 'Execution unavailable'];
+        }
+
+        return $kernels;
+    }
+
+    /** @return array<string, mixed> */
     public function run(string $code, string $language, string $filePath, string $basePath): array
     {
-        if (empty($code) && !empty($filePath)) {
-            $fullPath = realpath($basePath . DIRECTORY_SEPARATOR . $filePath);
-            if ($fullPath && str_starts_with($fullPath, $basePath) && is_file($fullPath)) {
-                $code = file_get_contents($fullPath);
-                $language = $language ?: pathinfo($fullPath, PATHINFO_EXTENSION);
-            }
+        if ($filePath !== '') {
+            $this->workspace->resolve($filePath);
         }
-
-        if (empty(trim($code))) {
-            return ['ok' => false, 'error' => 'No code provided to execute.'];
+        if ($code === '' && $filePath !== '') {
+            $file = $this->workspace->resolve($filePath);
+            abort_unless(is_file($file), 404);
+            $code = file_get_contents($file);
+            abort_unless($code !== false, 422, 'Could not read the file.');
         }
-
-        [$executable, $ext, $kernelName] = $this->resolveRuntime(strtolower($language));
-
-        $tempDir = storage_path('app/kernel_runner');
-        if (!is_dir($tempDir)) {
-            mkdir($tempDir, 0755, true);
-        }
-
-        $tempFile = $tempDir . DIRECTORY_SEPARATOR . 'run_' . uniqid() . '.' . $ext;
-        file_put_contents($tempFile, $code);
-
-        $startTime = microtime(true);
-        $cmd = $executable === 'powershell'
-            ? 'powershell -ExecutionPolicy Bypass -File ' . escapeshellarg($tempFile)
-            : escapeshellcmd($executable) . ' ' . escapeshellarg($tempFile);
-
-        [$stdout, $stderr, $exitCode] = $this->execProcess($cmd, $basePath);
-        $executionTimeMs = round((microtime(true) - $startTime) * 1000, 2);
-
-        if (file_exists($tempFile)) {
-            @unlink($tempFile);
-        }
-
-        return [
-            'ok' => true,
-            'kernel' => $kernelName,
-            'executable' => $executable,
-            'language' => $language ?: $ext,
-            'stdout' => $stdout,
-            'stderr' => $stderr,
-            'exitCode' => $exitCode,
-            'executionTimeMs' => $executionTimeMs,
-        ];
-    }
-
-    private function resolveRuntime(string $language): array
-    {
-        return match (true) {
-            in_array($language, ['python', 'py']) => ['python', 'py', 'Python 3 Kernel'],
-            in_array($language, ['javascript', 'js', 'node', 'typescript', 'ts']) => ['node', 'js', 'Node.js Kernel'],
-            in_array($language, ['shell', 'sh', 'bash', 'powershell', 'ps1', 'bat']) => ['powershell', 'ps1', 'Powershell Kernel'],
-            default => ['php', 'php', 'PHP Kernel'],
+        $language = strtolower($language ?: pathinfo($filePath, PATHINFO_EXTENSION));
+        $runtime = match ($language) {
+            'py', 'python' => ['/usr/bin/python3', '-u', '/run/code'],
+            'php' => ['/usr/bin/php', '/run/code'],
+            'js', 'javascript', 'node' => ['/usr/bin/node', '--max-old-space-size=128', '--jitless', '/run/code'],
+            'sh', 'shell', 'bash' => ['/usr/bin/bash', '/run/code'],
+            default => abort(422, 'This language is not supported by the code runner.'),
         };
-    }
-
-    private function execProcess(string $cmd, string $cwd): array
-    {
-        $descriptorSpec = [
-            0 => ['pipe', 'r'],
-            1 => ['pipe', 'w'],
-            2 => ['pipe', 'w'],
-        ];
-
-        $process = proc_open($cmd, $descriptorSpec, $pipes, $cwd);
-
-        $stdout = '';
-        $stderr = '';
-        $exitCode = -1;
-
-        if (is_resource($process)) {
-            fclose($pipes[0]);
-            $stdout = stream_get_contents($pipes[1]);
-            fclose($pipes[1]);
-            $stderr = stream_get_contents($pipes[2]);
-            fclose($pipes[2]);
-            $exitCode = proc_close($process);
+        abort_if(trim($code) === '', 422, 'No code provided.');
+        $this->sandbox->requireAvailable();
+        $directory = storage_path('app/kernel_runner');
+        File::ensureDirectoryExists($directory, 0700);
+        $file = $directory.'/'.bin2hex(random_bytes(24));
+        file_put_contents($file, $code);
+        try {
+            return ['ok' => true, 'kernel' => $language, 'language' => $language] + $this->sandbox->run($runtime, '', $file);
+        } finally {
+            unlink($file);
         }
-
-        return [$stdout ?: '', $stderr ?: '', $exitCode];
     }
 }

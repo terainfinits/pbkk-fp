@@ -11,15 +11,33 @@
 }
 
 @utility no-scrollbar {
-  scrollbar-width: none;
-  &::-webkit-scrollbar {
-    display: none;
-  }
-  -ms-overflow-style: none;
+    scrollbar-width: none;
+    &::-webkit-scrollbar {
+        display: none;
+    }
+    -ms-overflow-style: none;
 }
 
-@theme {
-    --color-its-blue: #002B66;
-    --color-its-accent: #0055B8;
-    --color-its-light: #E6EEF8;
+body {
+    margin: 0;
+    background: #0b0f19;
+    color: #e2e8f0;
+    font-family: Inter, sans-serif;
+}
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: #0f172a;
+}
+::-webkit-scrollbar-thumb {
+    background: #334155;
+    border-radius: 3px;
+}
+.auth-input {
+    @apply w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500;
+}
+.auth-submit {
+    @apply w-full rounded-lg bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-wait disabled:opacity-50;
 }

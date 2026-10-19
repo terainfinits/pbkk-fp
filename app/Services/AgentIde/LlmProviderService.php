@@ -2,6 +2,7 @@
 
 namespace App\Services\AgentIde;
 
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
 /**
@@ -12,6 +13,7 @@ use Illuminate\Support\Facades\Http;
 class LlmProviderService
 {
     /**
+     * @param  list<array{role: string, content: string}>  $history
      * @return array{success: bool, text?: string, error?: string}
      */
     public function dispatch(string $provider, string $model, string $apiKey, string $systemContext, string $prompt, array $history = []): array
@@ -27,6 +29,7 @@ class LlmProviderService
         };
     }
 
+    /** @return array{success: bool, text?: string, error?: string} */
     private function callGemini(string $model, string $apiKey, string $systemContext, string $prompt): array
     {
         $effectiveModel = $model ?: 'gemini-3.6-flash';
@@ -35,20 +38,22 @@ class LlmProviderService
         $response = Http::timeout(60)->post($url, [
             'contents' => [[
                 'role' => 'user',
-                'parts' => [['text' => $systemContext . "\n\nUser Request: " . $prompt]],
+                'parts' => [['text' => $systemContext."\n\nUser Request: ".$prompt]],
             ]],
         ]);
 
         if ($response->successful()) {
             $text = $response->json('candidates.0.content.parts.0.text', '');
+
             return $text !== ''
                 ? ['success' => true, 'text' => $text]
                 : ['success' => false, 'error' => 'Gemini API returned an empty text response.'];
         }
 
-        return ['success' => false, 'error' => "Gemini API Error ({$response->status()}): " . $this->extractError($response)];
+        return ['success' => false, 'error' => "Gemini API Error ({$response->status()}): ".$this->extractError($response)];
     }
 
+    /** @return array{success: bool, text?: string, error?: string} */
     private function callClaude(string $model, string $apiKey, string $systemContext, string $prompt): array
     {
         $response = Http::withHeaders([
@@ -66,13 +71,14 @@ class LlmProviderService
             return ['success' => true, 'text' => $response->json('content.0.text', '')];
         }
 
-        return ['success' => false, 'error' => "Claude API Error ({$response->status()}): " . $this->extractError($response)];
+        return ['success' => false, 'error' => "Claude API Error ({$response->status()}): ".$this->extractError($response)];
     }
 
+    /** @return array{success: bool, text?: string, error?: string} */
     private function callMoonshot(string $model, string $apiKey, string $systemContext, string $prompt): array
     {
         $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . $apiKey,
+            'Authorization' => 'Bearer '.$apiKey,
             'Content-Type' => 'application/json',
         ])->timeout(60)->post('https://api.moonshot.cn/v1/chat/completions', [
             'model' => $model ?: 'moonshot-v1-8k',
@@ -87,9 +93,10 @@ class LlmProviderService
             return ['success' => true, 'text' => $response->json('choices.0.message.content', '')];
         }
 
-        return ['success' => false, 'error' => "Kimi API Error ({$response->status()}): " . $this->extractError($response)];
+        return ['success' => false, 'error' => "Kimi API Error ({$response->status()}): ".$this->extractError($response)];
     }
 
+    /** @return array{success: bool, text?: string, error?: string} */
     private function callOpenAiCompatible(string $provider, string $model, string $apiKey, string $systemContext, string $prompt): array
     {
         $baseUrl = $provider === 'deepseek'
@@ -97,7 +104,7 @@ class LlmProviderService
             : 'https://api.openai.com/v1/chat/completions';
 
         $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . $apiKey,
+            'Authorization' => 'Bearer '.$apiKey,
             'Content-Type' => 'application/json',
         ])->timeout(60)->post($baseUrl, [
             'model' => $model ?: 'gpt-4o',
@@ -112,9 +119,10 @@ class LlmProviderService
             return ['success' => true, 'text' => $response->json('choices.0.message.content', '')];
         }
 
-        return ['success' => false, 'error' => ucfirst($provider) . " API Error ({$response->status()}): " . $this->extractError($response)];
+        return ['success' => false, 'error' => ucfirst($provider)." API Error ({$response->status()}): ".$this->extractError($response)];
     }
 
+    /** @return array{success: bool, text?: string, error?: string} */
     private function callOllama(string $model, string $apiKey, string $systemContext, string $prompt): array
     {
         $effectiveModel = $model ?: 'kimi-k2.6';
@@ -123,9 +131,9 @@ class LlmProviderService
             ['role' => 'user', 'content' => $prompt],
         ];
 
-        if (!empty($apiKey)) {
+        if (! empty($apiKey)) {
             $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . $apiKey,
+                'Authorization' => 'Bearer '.$apiKey,
                 'Content-Type' => 'application/json',
             ])->timeout(90)->post('https://ollama.com/api/chat', [
                 'model' => $effectiveModel,
@@ -135,12 +143,13 @@ class LlmProviderService
 
             if ($response->successful()) {
                 $text = $response->json('message.content') ?? $response->json('response') ?? $response->json('choices.0.message.content') ?? '';
+
                 return $text !== ''
                     ? ['success' => true, 'text' => $text]
                     : ['success' => false, 'error' => 'Ollama Cloud API returned an empty text response.'];
             }
 
-            return ['success' => false, 'error' => "Ollama Cloud API Error ({$response->status()}): " . $this->extractError($response)];
+            return ['success' => false, 'error' => "Ollama Cloud API Error ({$response->status()}): ".$this->extractError($response)];
         }
 
         // No API key: fall back to a local Ollama instance if one is running.
@@ -164,12 +173,13 @@ class LlmProviderService
      * Senopati ITS LLM Gateway (OpenAI-compatible chat completions endpoint).
      * Default model: qwen3:14b
      */
+    /** @return array{success: bool, text?: string, error?: string} */
     private function callSenopati(string $model, string $apiKey, string $systemContext, string $prompt): array
     {
         $effectiveModel = $model ?: 'qwen3:14b';
 
         $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . $apiKey,
+            'Authorization' => 'Bearer '.$apiKey,
             'Content-Type' => 'application/json',
         ])->timeout(90)->post('https://senopati.its.ac.id/llm-gateway/v1/chat/completions', [
             'model' => $effectiveModel,
@@ -181,17 +191,20 @@ class LlmProviderService
 
         if ($response->successful()) {
             $text = $response->json('choices.0.message.content', '');
+
             return $text !== ''
                 ? ['success' => true, 'text' => $text]
                 : ['success' => false, 'error' => 'Senopati API returned an empty text response.'];
         }
 
-        return ['success' => false, 'error' => "Senopati API Error ({$response->status()}): " . $this->extractError($response)];
+        return ['success' => false, 'error' => "Senopati API Error ({$response->status()}): ".$this->extractError($response)];
     }
 
-    private function extractError($response): string
+    private function extractError(Response $response): string
     {
         $json = $response->json();
-        return $json['error']['message'] ?? $json['error'] ?? $response->body();
+        $message = $json['error']['message'] ?? $json['error'] ?? null;
+
+        return is_string($message) ? $message : $response->body();
     }
 }

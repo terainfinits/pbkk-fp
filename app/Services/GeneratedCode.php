@@ -1,6 +1,0 @@
-Generation 5 (great‑great‑grandchildren)
-   └─ Generation 4 (great‑grandchildren)
-       └─ Generation 3 (grandchildren)
-           └─ Generation 2 (children)
-               └─ Generation 1 (parents)
-                   └─ Generation 0 (great‑great‑grandparents)

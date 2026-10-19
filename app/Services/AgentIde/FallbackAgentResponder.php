@@ -10,6 +10,7 @@ namespace App\Services\AgentIde;
  */
 class FallbackAgentResponder
 {
+    /** @return array<string|int, mixed> */
     public function generate(string $prompt, string $provider, string $model, ?string $targetFile, ?string $targetDirectory, ?string $apiNotice = null): array
     {
         $cleanPrompt = strtolower($prompt);
@@ -17,14 +18,14 @@ class FallbackAgentResponder
         [$targetPath, $language, $code, $explanation] = $this->matchTemplate($cleanPrompt, $prompt, $targetFile, $targetDirectory);
 
         $steps = [
-            ['title' => 'Reading & Context Extraction', 'detail' => 'Inspected target directory ' . ($targetDirectory ?: 'workspace root') . ' and analyzed prompt intent.'],
+            ['title' => 'Reading & Context Extraction', 'detail' => 'Inspected target directory '.($targetDirectory ?: 'workspace root').' and analyzed prompt intent.'],
             ['title' => 'Multi-Model Agent Synthesis', 'detail' => "Utilized {$provider} ({$model}) architecture rules to formulate clean solution."],
             ['title' => 'Writing Code Artifact', 'detail' => "Generated code targeted for `{$targetPath}`."],
             ['title' => 'Written to Editor (Pending Review)', 'detail' => 'Code automatically written to the text editor. Review changes and click Accept or Reject in the editor.'],
         ];
 
         $rawResponse = "### [FILE: {$targetPath}]\n\n```{$language}\n{$code}\n```\n\n**Agent Summary:**\n{$explanation}\n\n*Executed using {$provider} ({$model}) engine.*"
-            . ($apiNotice ? "\n\n*Note: {$apiNotice} (Using built-in intelligent engine fallback)*" : '');
+            .($apiNotice ? "\n\n*Note: {$apiNotice} (Using built-in intelligent engine fallback)*" : '');
 
         return [
             'success' => true,
@@ -40,6 +41,7 @@ class FallbackAgentResponder
         ];
     }
 
+    /** @return array<string|int, mixed> */
     private function matchTemplate(string $cleanPrompt, string $prompt, ?string $targetFile, ?string $targetDirectory): array
     {
         return match (true) {
@@ -51,6 +53,7 @@ class FallbackAgentResponder
         };
     }
 
+    /** @param list<string> $needles */
     private function any(string $haystack, array $needles): bool
     {
         foreach ($needles as $needle) {
@@ -62,9 +65,10 @@ class FallbackAgentResponder
         return false;
     }
 
+    /** @return array<string|int, mixed> */
     private function laravelControllerTemplate(?string $targetFile, ?string $targetDirectory): array
     {
-        $targetPath = $targetFile ?: ($targetDirectory ? rtrim($targetDirectory, '/\\') . '/UserController.php' : 'app/Http/Controllers/UserController.php');
+        $targetPath = $targetFile ?: ($targetDirectory ? rtrim($targetDirectory, '/\\').'/UserController.php' : 'app/Http/Controllers/UserController.php');
         $code = <<<'PHP'
 <?php
 
@@ -149,9 +153,10 @@ PHP;
         return [$targetPath, 'php', $code, 'Created a robust, modern Laravel RESTful Controller with validation, password hashing, and clean JSON/View responses.'];
     }
 
+    /** @return array<string|int, mixed> */
     private function vueComponentTemplate(?string $targetFile, ?string $targetDirectory): array
     {
-        $targetPath = $targetFile ?: ($targetDirectory ? rtrim($targetDirectory, '/\\') . '/AgentDashboard.vue' : 'resources/js/pages/AgentDashboard.vue');
+        $targetPath = $targetFile ?: ($targetDirectory ? rtrim($targetDirectory, '/\\').'/AgentDashboard.vue' : 'resources/js/pages/AgentDashboard.vue');
         $code = <<<'VUE'
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
@@ -204,9 +209,10 @@ VUE;
         return [$targetPath, 'vue', $code, 'Generated a high-performance Vue 3 TypeScript Component with Tailwind CSS, reactive telemetry state, and glassmorphism styling.'];
     }
 
+    /** @return array<string|int, mixed> */
     private function pestTestTemplate(?string $targetFile, ?string $targetDirectory): array
     {
-        $targetPath = $targetFile ?: ($targetDirectory ? rtrim($targetDirectory, '/\\') . '/AgentIdeTest.php' : 'tests/Feature/AgentIdeTest.php');
+        $targetPath = $targetFile ?: ($targetDirectory ? rtrim($targetDirectory, '/\\').'/AgentIdeTest.php' : 'tests/Feature/AgentIdeTest.php');
         $code = <<<'PHP'
 <?php
 
@@ -238,9 +244,10 @@ PHP;
         return [$targetPath, 'php', $code, 'Generated complete Pest test suite covering page loading, directory exploration, and Agentic AI prompt generation.'];
     }
 
+    /** @return array<string|int, mixed> */
     private function pythonScriptTemplate(?string $targetFile, ?string $targetDirectory): array
     {
-        $targetPath = $targetFile ?: ($targetDirectory ? rtrim($targetDirectory, '/\\') . '/script.py' : 'script.py');
+        $targetPath = $targetFile ?: ($targetDirectory ? rtrim($targetDirectory, '/\\').'/script.py' : 'script.py');
         $code = <<<'PY'
 import sys
 import time
@@ -277,17 +284,18 @@ PY;
         return [$targetPath, 'python', $code, 'Generated a high-performance Python 3 script with mathematical algorithms, timing functions, and kernel diagnostic outputs.'];
     }
 
+    /** @return array<string|int, mixed> */
     private function genericServiceTemplate(string $prompt, ?string $targetFile, ?string $targetDirectory): array
     {
         $folderBasename = $targetDirectory ? basename(str_replace('\\', '/', $targetDirectory)) : '';
-        $className = $folderBasename ? ucfirst(str_replace(['-', '_'], '', $folderBasename)) . 'Helper' : 'AgentService';
-        $filename = $className . '.php';
+        $className = $folderBasename ? ucfirst(str_replace(['-', '_'], '', $folderBasename)).'Helper' : 'AgentService';
+        $filename = $className.'.php';
 
         if (preg_match('/([a-zA-Z0-9_\-]+\.(php|vue|js|ts|css|html|json|md|py))/i', $prompt, $pm)) {
             $filename = $pm[1];
         }
 
-        $targetPath = $targetFile ?: ($targetDirectory ? rtrim($targetDirectory, '/\\') . '/' . $filename : 'app/Services/' . $filename);
+        $targetPath = $targetFile ?: ($targetDirectory ? rtrim($targetDirectory, '/\\').'/'.$filename : 'app/Services/'.$filename);
         $language = pathinfo($filename, PATHINFO_EXTENSION) ?: 'php';
         if ($language === 'py') {
             $language = 'python';
