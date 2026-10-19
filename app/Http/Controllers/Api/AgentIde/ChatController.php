@@ -47,12 +47,17 @@ class ChatController extends Controller
         // 1. Resolve or create chat session
         $session = null;
         if ($sessionId) {
-            $session = ChatSession::find($sessionId);
+            $session = ChatSession::where('user_id', $request->user()->id)->find($sessionId);
+        }
+
+        if ($sessionId && !$session) {
+            return response()->json(['success' => false, 'error' => 'Chat session not found.'], 404);
         }
 
         if (!$session) {
             $title = Str::limit(trim($prompt), 35, '...');
             $session = ChatSession::create([
+                'user_id' => $request->user()->id,
                 'title' => $title,
                 'provider' => $provider,
                 'model' => $model,

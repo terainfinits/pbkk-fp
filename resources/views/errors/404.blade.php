@@ -1,8 +1,5 @@
 <x-layout>
 
-    <!-- Navbar -->
-    @include('partials.navbar')
-
     <!-- Hero / 404 Error Section -->
     <section
         class="relative bg-gradient-to-b from-blue-50/50 via-white to-slate-50 py-16 lg:py-24 min-h-[75vh] flex items-center justify-center overflow-hidden">
@@ -35,7 +32,7 @@
                 <a href="{{ url('/') }}"
                     class="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-its-blue to-its-accent text-white font-semibold text-sm shadow-md hover:opacity-95 transition flex items-center justify-center gap-2">
                     <i class="fa-solid fa-house text-xs"></i>
-                    Back to Home
+                    Back to Magentic IDE
                 </a>
 
                 <button onclick="window.history.back()"
@@ -47,8 +44,5 @@
 
         </div>
     </section>
-
-    <!-- Footer -->
-    @include('partials.footer')
 
 </x-layout>

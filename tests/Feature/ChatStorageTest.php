@@ -2,6 +2,12 @@
 
 use App\Models\ChatMessage;
 use App\Models\ChatSession;
+use App\Models\User;
+
+beforeEach(function () {
+    $this->user = User::factory()->create();
+    $this->actingAs($this->user);
+});
 
 test('can create, list, and view chat sessions', function () {
     // 1. Create a session
@@ -54,7 +60,7 @@ test('agent prompt stores user and assistant messages in database', function () 
 });
 
 test('can delete a chat session and cascade delete its messages', function () {
-    $session = ChatSession::create(['title' => 'Sesi untuk dihapus']);
+    $session = ChatSession::create(['title' => 'Sesi untuk dihapus', 'user_id' => $this->user->id]);
     $session->messages()->create(['role' => 'user', 'content' => 'Pesan sementara']);
 
     $deleteRes = $this->deleteJson(route('ide.api.chats.destroy', ['id' => $session->id]));
@@ -66,10 +72,10 @@ test('can delete a chat session and cascade delete its messages', function () {
 });
 
 test('can search and filter chat sessions by keyword in title or message content', function () {
-    $session1 = ChatSession::create(['title' => 'Implementasi Algoritma Dijkstra']);
+    $session1 = ChatSession::create(['title' => 'Implementasi Algoritma Dijkstra', 'user_id' => $this->user->id]);
     $session1->messages()->create(['role' => 'user', 'content' => 'Bagaimana cara kerja graf berbobot?']);
 
-    $session2 = ChatSession::create(['title' => 'Setup Docker Compose']);
+    $session2 = ChatSession::create(['title' => 'Setup Docker Compose', 'user_id' => $this->user->id]);
     $session2->messages()->create(['role' => 'user', 'content' => 'Buatkan konfigurasi docker mysql']);
 
     // Search by title keyword
@@ -89,6 +95,7 @@ test('can search and filter chat sessions by keyword in title or message content
 
 test('can export chat session as markdown document', function () {
     $session = ChatSession::create([
+        'user_id' => $this->user->id,
         'title' => 'Percakapan Ekspor',
         'provider' => 'gemini',
         'model' => 'gemini-3.6-flash',

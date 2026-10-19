@@ -1,9 +1,16 @@
 <?php
 
+use App\Models\User;
+
+beforeEach(function () {
+    $this->withoutVite();
+    $this->actingAs(User::factory()->create());
+});
+
 test('ide page loads successfully', function () {
     $response = $this->get(route('ide.index'));
     $response->assertStatus(200);
-    $response->assertSee('Antigravity');
+    $response->assertSee('AgentIdeApp');
 });
 
 test('kernels api detects python php node', function () {
