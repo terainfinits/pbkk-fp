@@ -17,7 +17,8 @@ class ChatSessionController extends Controller
     {
         $search = $request->query('search');
 
-        $query = ChatSession::withCount('messages')
+        $query = ChatSession::where('user_id', $request->user()->id)
+            ->withCount('messages')
             ->orderByDesc('updated_at');
 
         if (!empty($search)) {
@@ -43,6 +44,7 @@ class ChatSessionController extends Controller
     public function store(Request $request): JsonResponse
     {
         $session = ChatSession::create([
+            'user_id' => $request->user()->id,
             'title' => $request->input('title', 'Percakapan Baru'),
             'provider' => $request->input('provider'),
             'model' => $request->input('model'),
@@ -57,9 +59,9 @@ class ChatSessionController extends Controller
     /**
      * Display the specified chat session with all its messages.
      */
-    public function show($id): JsonResponse
+    public function show(Request $request, $id): JsonResponse
     {
-        $session = ChatSession::with('messages')->find($id);
+        $session = ChatSession::where('user_id', $request->user()->id)->with('messages')->find($id);
 
         if (!$session) {
             return response()->json([
@@ -77,9 +79,9 @@ class ChatSessionController extends Controller
     /**
      * Export the specified chat session as a Markdown or plain text document.
      */
-    public function export($id)
+    public function export(Request $request, $id)
     {
-        $session = ChatSession::with('messages')->find($id);
+        $session = ChatSession::where('user_id', $request->user()->id)->with('messages')->find($id);
 
         if (!$session) {
             return response()->json([
@@ -139,7 +141,7 @@ class ChatSessionController extends Controller
      */
     public function update(Request $request, $id): JsonResponse
     {
-        $session = ChatSession::find($id);
+        $session = ChatSession::where('user_id', $request->user()->id)->find($id);
 
         if (!$session) {
             return response()->json([
@@ -161,13 +163,18 @@ class ChatSessionController extends Controller
     /**
      * Remove the specified chat session from storage.
      */
-    public function destroy($id): JsonResponse
+    public function destroy(Request $request, $id): JsonResponse
     {
-        $session = ChatSession::find($id);
+        $session = ChatSession::where('user_id', $request->user()->id)->find($id);
 
-        if ($session) {
-            $session->delete();
+        if (!$session) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Chat session not found.',
+            ], 404);
         }
+
+        $session->delete();
 
         return response()->json([
             'success' => true,

@@ -5,6 +5,7 @@ import type { useIdeState } from '@/composables/useIdeState';
 
 const emit = defineEmits<{ 'open-settings': [] }>();
 const { state } = inject<{ api: IdeApi; state: ReturnType<typeof useIdeState> }>('ide')!;
+const csrfToken = typeof document === 'undefined' ? '' : document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
 const targetDisplay = computed(() =>
   state.targetDirectory.value ? '/' + state.targetDirectory.value : '/ (Root)'
@@ -32,7 +33,7 @@ const saveActiveFile = () => {
 <template>
   <header class="h-14 bg-[#0e1424] border-b border-slate-800/80 px-4 flex items-center justify-between shrink-0 z-30">
     <div class="flex items-center space-x-4">
-      <a href="/" class="flex items-center gap-2 group">
+      <a href="/ide" class="flex items-center gap-2 group">
         <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/20 group-hover:scale-105 transition">
           <i class="fa-solid fa-atom text-sm"></i>
         </div>
@@ -95,13 +96,13 @@ const saveActiveFile = () => {
         <span>API Keys</span>
       </button>
 
-      <a
-        href="/"
-        class="px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 text-xs font-semibold rounded-md border border-indigo-500/30 flex items-center gap-1.5 transition"
-      >
-        <i class="fa-solid fa-arrow-left"></i>
-        <span>Back to App</span>
-      </a>
+      <form action="/logout" method="POST">
+        <input type="hidden" name="_token" :value="csrfToken" />
+        <button type="submit" class="px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 text-xs font-semibold rounded-md border border-indigo-500/30 flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-right-from-bracket"></i>
+          <span>Logout</span>
+        </button>
+      </form>
     </div>
   </header>
 </template>

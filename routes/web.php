@@ -1,63 +1,52 @@
 <?php
 
 use App\Http\Controllers\AgentIdeController;
+use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Api\AgentIde\ChatController;
 use App\Http\Controllers\Api\AgentIde\ChatSessionController;
 use App\Http\Controllers\Api\AgentIde\FileController;
 use App\Http\Controllers\Api\AgentIde\KernelController;
-use App\Http\Controllers\CalculatorController;
-use App\Http\Controllers\PageController;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
-/* route konek dg class & method di file controller */
-Route::get('/', [PageController::class, 'index'])->name('home');
+Route::get('/', fn() => redirect()->route(Auth::check() ? 'ide.index' : 'login'));
 
-/* route konek jg dg url*/
-Route::get('/agent/{tema?}', [PageController::class, 'agent'])->name('agent.idea');
-Route::get('/mahasiswa/{nrp}', [PageController::class, 'mahasiswaDetail'])
-    ->where('nrp', '[0-9]{10}')
-    ->name('mahasiswa.detail');
-Route::get('/hitung-ipk/{ip1?}/{ip2?}', [CalculatorController::class, 'calculateIpk'])->name('calculator.ipk');
+Route::middleware('guest')->group(function () {
+    Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:6,1');
+    Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
+    Route::post('/register', [AuthController::class, 'register']);
+});
 
+Route::middleware('auth')->group(function () {
+    Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
-/* grouping routes url formatnya "domainnya/ide/sesuatu" */
-Route::prefix('ide')->name('ide.')->group(function () {
-    Route::get('/', [AgentIdeController::class, 'index'])->name('index'); 
+    Route::prefix('ide')->name('ide.')->group(function () {
+        Route::get('/', [AgentIdeController::class, 'index'])->name('index');
 
-    Route::prefix('api')->name('api.')->group(function () {
-        Route::get('/tree', [FileController::class, 'tree'])->name('tree');
-        Route::post('/file/read', [FileController::class, 'read'])->name('file.read');
-        Route::post('/file/save', [FileController::class, 'save'])->name('file.save');
-        Route::post('/file/create', [FileController::class, 'create'])->name('file.create');
-        Route::post('/file/delete', [FileController::class, 'delete'])->name('file.delete');
-        Route::post('/file/rename', [FileController::class, 'rename'])->name('file.rename');
-        Route::post('/file/upload', [FileController::class, 'upload'])->name('file.upload');
+        Route::prefix('api')->name('api.')->group(function () {
+            Route::get('/tree', [FileController::class, 'tree'])->name('tree');
+            Route::post('/file/read', [FileController::class, 'read'])->name('file.read');
+            Route::post('/file/save', [FileController::class, 'save'])->name('file.save');
+            Route::post('/file/create', [FileController::class, 'create'])->name('file.create');
+            Route::post('/file/delete', [FileController::class, 'delete'])->name('file.delete');
+            Route::post('/file/rename', [FileController::class, 'rename'])->name('file.rename');
+            Route::post('/file/upload', [FileController::class, 'upload'])->name('file.upload');
 
-        Route::get('/kernels', [KernelController::class, 'index'])->name('kernels');
-        Route::post('/code/run', [KernelController::class, 'run'])->name('code.run');
+            Route::get('/kernels', [KernelController::class, 'index'])->name('kernels');
+            Route::post('/code/run', [KernelController::class, 'run'])->name('code.run');
+            Route::post('/agent/prompt', [ChatController::class, 'prompt'])->name('agent.prompt');
 
-        Route::post('/agent/prompt', [ChatController::class, 'prompt'])->name('agent.prompt');
+            Route::get('/chats', [ChatSessionController::class, 'index'])->name('chats.index');
+            Route::post('/chats', [ChatSessionController::class, 'store'])->name('chats.store');
+            Route::get('/chats/{id}', [ChatSessionController::class, 'show'])->name('chats.show');
+            Route::get('/chats/{id}/export', [ChatSessionController::class, 'export'])->name('chats.export');
+            Route::put('/chats/{id}', [ChatSessionController::class, 'update'])->name('chats.update');
+            Route::delete('/chats/{id}', [ChatSessionController::class, 'destroy'])->name('chats.destroy');
 
-        Route::get('/chats', [ChatSessionController::class, 'index'])->name('chats.index');
-        Route::post('/chats', [ChatSessionController::class, 'store'])->name('chats.store');
-        Route::get('/chats/{id}', [ChatSessionController::class, 'show'])->name('chats.show');
-        Route::get('/chats/{id}/export', [ChatSessionController::class, 'export'])->name('chats.export');
-        Route::put('/chats/{id}', [ChatSessionController::class, 'update'])->name('chats.update');
-        Route::delete('/chats/{id}', [ChatSessionController::class, 'destroy'])->name('chats.destroy');
-
-        Route::post('/terminal/execute', [\App\Http\Controllers\Api\AgentIde\TerminalController::class, 'execute'])->name('terminal.execute');
+            Route::post('/terminal/execute', [\App\Http\Controllers\Api\AgentIde\TerminalController::class, 'execute'])->name('terminal.execute');
+        });
     });
 });
 
-Route::prefix('dashboard')->name('dashboard.')->group(function () {
-    Route::get('/', [PageController::class, 'index'])->name('home');
-    Route::get('/mahasiswa/{nrp}', [PageController::class, 'mahasiswaDetail'])
-        ->where('nrp', '[0-9]{10}')
-        ->name('mahasiswa.detail');
-});
-
-/* fallback kalo ngga ada yg sesuai di route atas*/
-Route::fallback(function () {
-    return view('errors.404');
-});
-
+Route::fallback(fn() => response()->view('errors.404', [], 404));
