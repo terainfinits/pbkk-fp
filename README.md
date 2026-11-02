@@ -31,6 +31,14 @@ php artisan migrate
 composer run dev
 ```
 
+## Tangkapan Layar Tugas Minggu 9 PBKK
+
+Menampilkan chat session lampau
+<img width="1365" height="629" alt="image" src="https://github.com/user-attachments/assets/402c7359-8433-4686-a9d6-c4ae741128e8" />
+
+Mencari chat session lampau berdasarkan kata kunci tertentu
+<img width="1357" height="618" alt="image" src="https://github.com/user-attachments/assets/f68704c8-555d-4561-9a5d-af9a980a98c4" />
+
 ## Routes list
 - `/` home page <br>
 - `/agent/{tema?}` agent page <br>
