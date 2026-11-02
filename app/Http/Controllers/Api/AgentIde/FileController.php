@@ -121,7 +121,12 @@ class FileController extends Controller
     public function upload(Request $request)
     {
         $file = $request->file('upload');
-        $targetDirectory = $request->input('targetDirectory', '');
+        $targetDirectory = (string) $request->input('targetDirectory', '');
+
+        if (!$file) {
+            // PHP upload limits exceeded (upload_max_filesize/post_max_size)
+            return response()->json(['success' => false, 'error' => 'No file received. File may exceed upload limits (max 2MB).'], 413);
+        }
 
         $result = $this->files->uploadFile($file, $targetDirectory);
 

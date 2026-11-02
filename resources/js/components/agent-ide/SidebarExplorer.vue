@@ -158,7 +158,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <aside class="w-64 bg-[#0b0f1a] border-r border-slate-800 flex flex-col shrink-0">
+  <aside class="explorer-sidebar bg-[#0b0f1a] border-r border-slate-800 flex flex-col shrink-0">
     <!-- header unchanged -->
     <div class="h-10 px-3 border-b border-slate-800 flex items-center justify-between text-xs font-semibold text-slate-400 uppercase tracking-wider bg-[#0d1322]">
       <div class="flex items-center gap-2">
@@ -172,11 +172,11 @@ onBeforeUnmount(() => {
         <button title="New Folder" class="w-6 h-6 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200 flex items-center justify-center transition" @click="openCreateModal('folder')">
           <i class="fa-solid fa-folder-plus text-xs"></i>
         </button>
-        <button title="Refresh" class="w-6 h-6 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200 flex items-center justify-center transition" @click="loadTree">
-          <i class="fa-solid fa-rotate text-xs"></i>
-        </button>
         <button title="Upload" class="w-6 h-6 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200 flex items-center justify-center transition" @click="openUpload">
           <i class="fa-solid fa-upload text-xs"></i>
+        </button>
+        <button title="Refresh" class="w-6 h-6 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200 flex items-center justify-center transition" @click="loadTree">
+          <i class="fa-solid fa-rotate text-xs"></i>
         </button>
         <input type="file" id="upload-file-input" class="hidden" @change="handleUpload" />
       </div>

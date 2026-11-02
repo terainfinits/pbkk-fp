@@ -7,6 +7,7 @@ import ChatPanel from '@/components/agent-ide/ChatPanel.vue';
 import SettingsModal from '@/components/agent-ide/SettingsModal.vue';
 import CreateModal from '@/components/agent-ide/CreateModal.vue';
 import ToastStack from '@/components/agent-ide/ToastStack.vue';
+import FileDropZone from '@/components/agent-ide/FileDropZone.vue';
 import { createIdeApi, defaultRoutes, type IdeRoutes } from '@/composables/useIdeApi';
 import { useIdeState } from '@/composables/useIdeState';
 
@@ -46,6 +47,7 @@ onMounted(() => {
 
 <template>
   <div class="h-screen flex flex-col antialiased select-none bg-[#090d16] text-slate-200">
+    <FileDropZone />
     <HeaderNav @open-settings="isSettingsOpen = true" />
 
     <div class="flex-1 flex overflow-hidden">

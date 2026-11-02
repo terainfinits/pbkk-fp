@@ -8,7 +8,6 @@ body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     background-color: #0b0f19;
     color: #e2e8f0;
-    overflow: hidden;
 }
 
 .code-font {
@@ -243,5 +242,40 @@ body {
 .diff-line-same {
     color: #94a3b8;
     border-left: 3px solid transparent;
+}
+
+/* ==========================================================================
+   Responsive panel widths (zoom + small screens)
+   ========================================================================== */
+
+/* Sidebar explorer width: scales with viewport, never too narrow/wide */
+.explorer-sidebar {
+    width: clamp(176px, 16rem, 22vw);
+    flex-shrink: 0;
+}
+
+/* Chat panel width: scales with viewport */
+.chat-panel {
+    width: clamp(240px, 24rem, 30vw);
+    flex-shrink: 0;
+}
+
+/* Ensure chat panel content doesn't overflow */
+.chat-panel .flex-1,
+.chat-panel pre,
+.chat-panel code {
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+/* Flex children must allow shrinking */
+.flex-1 {
+    min-width: 0;
+}
+
+/* box-sizing */
+* {
+    box-sizing: border-box;
 }
 

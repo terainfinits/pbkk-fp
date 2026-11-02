@@ -82,26 +82,37 @@ export function createIdeApi(routes: IdeRoutes) {
     saveFile: (path: string, content: string) => post(routes.fileSave, { path, content }),
     createFile: (path: string, type: 'file' | 'directory', content = '') =>
       post(routes.fileCreate, { path, type, content }),
-    renameFile: (path: string, newName: string) =>
-      post(routes.fileRename, { path, newName }),
-    uploadFile: (file: File, targetDirectory: string) => {
-      const formData = new FormData();
-      formData.append('upload', file);
-      formData.append('targetDirectory', targetDirectory || '');
-      return fetch(routes.fileUpload, {
+renameFile: (path: string, newName: string) =>
+    post(routes.fileRename, { path, newName }),
+uploadFile: (file: File, targetDirectory: string) => {
+    const formData = new FormData();
+    formData.append('upload', file);
+    formData.append('targetDirectory', targetDirectory || '');
+    return fetch(routes.fileUpload, {
         method: 'POST',
         headers: {
-          'X-CSRF-TOKEN': csrf(),
+            'X-CSRF-TOKEN': csrf(),
+            'Accept': 'application/json',
         },
         body: formData,
-      }).then(async (res) => {
+    }).then(async (res) => {
         const ct = res.headers.get('content-type') || '';
-        if (ct.includes('application/json')) return res.json();
-        const text = await res.text();
-        return { success: false, error: text || `HTTP ${res.status}` };
-      });
-    },
-    deleteFile: (path: string) => post(routes.fileDelete, { path }),
+        if (ct.includes('application/json')) {
+            const data = await res.json();
+            return { success: data.success ?? false, error: data.error ?? `HTTP ${res.status}` };
+        }
+        // If not JSON, give a concise status-based message instead of raw HTML dump
+        const status = res.status;
+        const concise = status === 413 ? 'File terlalu besar (batas upload terlampaui).'
+            : status === 419 ? 'Sesi berakhir / CSRF mismatch.'
+            : status === 400 ? 'Permintaan tidak valid.'
+            : status === 401 ? 'Belum terautentikasi.'
+            : status === 0 ? 'Tidak ada koneksi ke server.'
+            : `HTTP ${status}`;
+        return { success: false, error: concise };
+    });
+},
+deleteFile: (path: string) => post(routes.fileDelete, { path }),
     fetchKernels: () => get(routes.kernels),
     runCode: (code: string, language: string, path = '') =>
       post(routes.codeRun, { code, language, path }),

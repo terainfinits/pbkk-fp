@@ -44,6 +44,11 @@ class ChatController extends Controller
             return response()->json(['success' => false, 'error' => 'Prompt cannot be empty'], 400);
         }
 
+        // default API key for Senopati (env config only, no hardcoded secrets)
+        if (empty($apiKey) && $provider === 'senopati') {
+            $apiKey = config('services.senopati.api_key', '');
+        }
+
         // 1. Resolve or create chat session
         $session = null;
         if ($sessionId) {
@@ -85,10 +90,21 @@ class ChatController extends Controller
                 $response = $this->llm->dispatch($provider, $model, $apiKey, $systemContext, $prompt, $history);
 
                 if (!$response['success']) {
-                    return response()->json(['success' => false, 'error' => $response['error'] ?? 'Live API call failed'], 400);
-                }
+                    // network/DNS failures are environmental (e.g. Senopati
+                    // only resolves inside the ITS campus network). Serve the
+                    // built-in generator so the user still gets an answer, and
+                    // flag it in the UI. Auth/invalid-key errors keep failing
+                    // loudly — we do NOT fall back for those (decision #5).
+                    if (empty($response['network_error'])) {
+                        return response()->json(['success' => false, 'error' => $response['error'] ?? 'Live API call failed'], 400);
+                    }
 
-                $formatted = $this->formatter->format($response['text'], $provider, $model, $targetFile, $targetDirectory, $prompt);
+                    $notice = $response['error'] . ' Response came from the built-in fallback generator, not the live AI.';
+                    $formatted = $this->fallback->generate($prompt, $provider, $model, $targetFile, $targetDirectory, $notice);
+                    $formatted['fallbackNotice'] = $notice;
+                } else {
+                    $formatted = $this->formatter->format($response['text'], $provider, $model, $targetFile, $targetDirectory, $prompt);
+                }
             } else {
                 $formatted = $this->fallback->generate($prompt, $provider, $model, $targetFile, $targetDirectory);
             }

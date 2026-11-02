@@ -39,8 +39,9 @@ const providerModels: Record<string, { id: string; name: string }[]> = {
   ],
 };
 
-const provider = ref('ollama_cloud');
-const model = ref('gpt-oss:120b');
+/* Default = Senopati (works out-of-the-box: backend injects the default key) */
+const provider = ref('senopati');
+const model = ref('qwen3:14b');
 const prompt = ref('');
 const isThinking = ref(false);
 
@@ -183,6 +184,7 @@ interface ChatMessage {
   steps?: { title: string; detail: string }[];
   loading?: boolean;
   error?: string;
+  fallbackNotice?: string;
 }
 const messages = ref<ChatMessage[]>([]);
 let msgSeq = 0;
@@ -235,14 +237,14 @@ async function submit() {
       sessionId: currentSessionId.value,
     });
 
-    botMsg.loading = false;
+      botMsg.loading = false;
 
-    if (data.success) {
-      botMsg.raw = data.raw;
+      if (data.success) {
       botMsg.code = data.code;
       botMsg.language = data.language;
       botMsg.targetPath = data.targetPath;
       botMsg.steps = data.steps || [];
+      botMsg.fallbackNotice = data.fallbackNotice;
       botMsg.content = data.explanation || '';
       state.lastGeneratedCode.value = data.code;
       state.lastGeneratedTarget.value = data.targetPath;
@@ -254,7 +256,7 @@ async function submit() {
 
       state.pushToast('Agentic Chatbot response completed.');
     } else {
-      botMsg.error = data.error || 'Failed to process prompt.';
+      botMsg.error = (data.error || 'Failed to process prompt.').slice(0, 300);
     }
   } catch (err: any) {
     botMsg.loading = false;
@@ -373,7 +375,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <aside class="w-96 bg-[#0e1424] border-l border-slate-800 flex flex-col shrink-0">
+  <aside class="chat-panel bg-[#0e1424] border-l border-slate-800 flex flex-col shrink-0">
     <!-- Header -->
     <div class="p-3 border-b border-slate-800 bg-[#0d1322] space-y-2.5">
       <div class="flex items-center justify-between">
@@ -566,6 +568,12 @@ onMounted(() => {
               </div>
 
               <template v-else>
+                <!-- Built-in fallback notice (live AI unreachable) -->
+                <div v-if="msg.fallbackNotice" class="p-2 rounded bg-amber-950/50 border border-amber-500/30 text-amber-300 text-[11px] flex items-start gap-2">
+                  <i class="fa-solid fa-plug-circle-exclamation mt-0.5"></i>
+                  <div>{{ msg.fallbackNotice }}</div>
+                </div>
+
                 <!-- Reasoning steps -->
                 <details v-if="msg.steps?.length" class="group bg-slate-950/80 rounded-lg border border-slate-800 p-2.5 transition">
                   <summary class="flex items-center justify-between text-[11px] font-semibold text-purple-300 cursor-pointer select-none">
@@ -586,7 +594,7 @@ onMounted(() => {
                 </details>
 
                 <!-- Markdown body -->
-                <div v-if="msg.raw" v-html="renderMarkdown(msg.raw)"></div>
+                <div v-if="msg.raw" class="markdown-body" v-html="renderMarkdown(msg.raw)"></div>
 
                 <!-- Code card -->
                 <div v-if="msg.code" class="rounded-xl bg-[#060910] border border-slate-800 overflow-hidden shadow-md">

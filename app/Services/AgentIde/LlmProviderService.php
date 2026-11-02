@@ -2,6 +2,7 @@
 
 namespace App\Services\AgentIde;
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 
 /**
@@ -12,7 +13,7 @@ use Illuminate\Support\Facades\Http;
 class LlmProviderService
 {
     /**
-     * @return array{success: bool, text?: string, error?: string}
+     * @return array{success: bool, text?: string, error?: string, network_error?: bool}
      */
     public function dispatch(string $provider, string $model, string $apiKey, string $systemContext, string $prompt, array $history = []): array
     {
@@ -163,21 +164,37 @@ class LlmProviderService
     /**
      * Senopati ITS LLM Gateway (OpenAI-compatible chat completions endpoint).
      * Default model: qwen3:14b
+     * Base URL configurable via env SENOPATI_BASE_URL (defaults to ITS gateway).
+     * DNS may fail externally; env override allows private/proxy endpoints.
      */
     private function callSenopati(string $model, string $apiKey, string $systemContext, string $prompt): array
     {
         $effectiveModel = $model ?: 'qwen3:14b';
+        $baseUrl = config('services.senopati.base_url');
+        $endpoint = rtrim($baseUrl, '/') . '/llm-gateway/v1/chat/completions';
 
-        $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . $apiKey,
-            'Content-Type' => 'application/json',
-        ])->timeout(90)->post('https://senopati.its.ac.id/llm-gateway/v1/chat/completions', [
-            'model' => $effectiveModel,
-            'messages' => [
-                ['role' => 'system', 'content' => $systemContext],
-                ['role' => 'user', 'content' => $prompt],
-            ],
-        ]);
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $apiKey,
+                'Content-Type' => 'application/json',
+            ])->timeout(90)->post($endpoint, [
+                'model' => $effectiveModel,
+                'messages' => [
+                    ['role' => 'system', 'content' => $systemContext],
+                    ['role' => 'user', 'content' => $prompt],
+                ],
+            ]);
+        } catch (ConnectionException $e) {
+            // DNS/connection failure is environmental (Senopati only
+            // resolves inside the ITS campus network / ITS VPN). Flag it so the
+            // controller can fall back to the built-in generator. Auth errors
+            // and malformed requests are NOT caught here — they fail loudly.
+            return [
+                'success' => false,
+                'network_error' => true,
+                'error' => 'The Senopati host could not be resolved because access is restricted to the ITS campus network or ITS VPN.',
+            ];
+        }
 
         if ($response->successful()) {
             $text = $response->json('choices.0.message.content', '');

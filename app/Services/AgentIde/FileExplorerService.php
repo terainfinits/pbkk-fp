@@ -251,6 +251,14 @@ class FileExplorerService {
             return ['ok' => false, 'error' => 'Invalid file upload.'];
         }
 
+        // block compressed formats built-in functions cannot extract
+        // (only ZIP supported). RAR/7Z/TAR/etc. rejected before save.
+        $blocked = ['rar', '7z', 'tar', 'gz', 'bz2', 'xz'];
+        $extension = strtolower(pathinfo($file->getClientOriginalName(), PATHINFO_EXTENSION));
+        if (in_array($extension, $blocked, true)) {
+            return ['ok' => false, 'error' => 'File type not allowed. Only ZIP archives can be uploaded.'];
+        }
+
         $originalName = $file->getClientOriginalName();
         $cleanName = basename($originalName);
         if ($cleanName === '') {
@@ -327,10 +335,19 @@ class FileExplorerService {
             }
         }
 
-        // Extract.
-        $zip->extract($fullDir);
+        // Extract. (ZipArchive::extractTo — there is no extract() method;
+        // the old call threw Error → HTTP 500.)
+        try {
+            $extracted = $zip->extractTo($fullDir);
+        } catch (\Throwable) {
+            $extracted = false;
+        }
         $zip->close();
         @unlink($tempZip);
+
+        if (!$extracted) {
+            return ['ok' => false, 'error' => 'ZIP extraction failed — the archive may be corrupt.'];
+        }
 
         $rel = str_replace('\\', '/', ltrim(str_replace($basePath, '', $fullDir), '/\\'));
         return ['ok' => true, 'path' => $rel];

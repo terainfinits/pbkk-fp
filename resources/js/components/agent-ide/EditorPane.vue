@@ -173,7 +173,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <main class="flex-1 flex flex-col bg-[#0b0f19] overflow-hidden">
+  <main class="flex-1 min-w-0 flex flex-col bg-[#0b0f19] overflow-hidden">
     <!-- Tabs -->
     <div class="h-10 bg-[#0e1424] border-b border-slate-800 flex items-center px-1 overflow-x-auto shrink-0 space-x-1">
       <!-- ... existing tabs code ... -->
@@ -220,7 +220,7 @@ onBeforeUnmount(() => {
           v-model:value="code"
           :language="editorLanguage"
           :theme="currentTheme"
-          :options="{ minimap: { enabled: false } }"
+          :options="{ minimap: { enabled: false }, automaticLayout: true }"
           class="h-full w-full"
           @cursorPositionChange="updateCursor"
           @editorDidMount="handleEditorMount"
