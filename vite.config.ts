@@ -13,7 +13,6 @@ export default defineConfig({
                 'resources/css/app.css', 
                 'resources/js/app.ts',
                 'resources/css/agent-ide.css',
-                'resources/js/agent-ide/main.js',
             ],
             refresh: true,
             fonts: [
