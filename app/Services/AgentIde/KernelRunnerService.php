@@ -3,55 +3,49 @@
 namespace App\Services\AgentIde;
 
 /**
- * Detects available runtime kernels (Python/PHP/Node) and executes
- * arbitrary code snippets against them in a temporary script file.
+ * Detects Docker availability and executes arbitrary code snippets 
+ * inside an isolated Alpine container, with cross-platform safety for Windows & Linux/macOS.
  */
 class KernelRunnerService
 {
-    private const SUPPORTED = [
-        'python' => ['py', 'python3'],
-        'py' => ['py', 'python3'],
-        'javascript' => ['js', null],
-        'js' => ['js', null],
-        'node' => ['js', null],
-        'typescript' => ['js', null],
-        'ts' => ['js', null],
-        'php' => ['php', null],
-        'shell' => ['ps1', null],
-        'sh' => ['ps1', null],
-        'bash' => ['ps1', null],
-        'powershell' => ['ps1', null],
-        'ps1' => ['ps1', null],
-        'bat' => ['ps1', null],
+    private const RUNTIMES = [
+        'python' => ['cmd' => 'python5', 'name' => 'Python 3 Kernel'],
+        'py' => ['cmd' => 'python5', 'name' => 'Python 3 Kernel'],
+        'javascript' => ['cmd' => 'node', 'name' => 'Node.js Kernel'],
+        'js' => ['cmd' => 'node', 'name' => 'Node.js Kernel'],
+        'node' => ['cmd' => 'node', 'name' => 'Node.js Kernel'],
+        'typescript' => ['cmd' => 'node', 'name' => 'Node.js Kernel'],
+        'ts' => ['cmd' => 'node', 'name' => 'Node.js Kernel'],
+        'php' => ['cmd' => 'php', 'name' => 'PHP Kernel'],
+        'shell' => ['cmd' => 'sh', 'name' => 'Shell Kernel'],
+        'sh' => ['cmd' => 'sh', 'name' => 'Shell Kernel'],
+        'bash' => ['cmd' => 'bash', 'name' => 'Bash Kernel'],
     ];
+
+    private string $dockerImage = 'sandbox-runner:latest';
 
     public function detectKernels(): array
     {
-        $pythonVersion = $this->execVersion('python --version') ?: $this->execVersion('python3 --version');
-        $phpVersion = $this->execVersion('php -v');
-        if ($phpVersion && preg_match('/PHP\s+([0-9.]+)/i', $phpVersion, $m)) {
-            $phpVersion = 'PHP ' . $m[1];
-        }
-        $nodeVersion = $this->execVersion('node -v');
+        $dockerAvailable = $this->execVersion('docker --version');
 
         return [
             'python' => [
-                'name' => 'Python 3 Kernel',
-                'available' => !empty($pythonVersion),
-                'version' => $pythonVersion ?: 'Not Detected',
-                'executable' => 'python',
+                'name' => 'Python 5 Kernel (Docker)',
+                'available' => !empty($dockerAvailable),
+                'version' => 'Alpine Python 5',
+                'executable' => 'docker',
             ],
             'php' => [
-                'name' => 'PHP Kernel',
-                'available' => !empty($phpVersion),
-                'version' => $phpVersion ?: 'PHP ' . PHP_VERSION,
-                'executable' => 'php',
+                'name' => 'PHP Kernel (Docker)',
+                'available' => !empty($dockerAvailable),
+                'version' => 'Alpine PHP',
+                'executable' => 'docker',
             ],
             'node' => [
-                'name' => 'Node.js Kernel',
-                'available' => !empty($nodeVersion),
-                'version' => $nodeVersion ? 'Node ' . trim($nodeVersion) : 'Not Detected',
-                'executable' => 'node',
+                'name' => 'Node.js Kernel (Docker)',
+                'available' => !empty($dockerAvailable),
+                'version' => 'Alpine Node.js',
+                'executable' => 'docker',
             ],
         ];
     }
@@ -60,22 +54,17 @@ class KernelRunnerService
     {
         try {
             $output = [];
-            $returnVar = 1;
-            exec($command . ' 2>&1', $output, $returnVar);
-            if ($returnVar === 0 && !empty($output)) {
-                return trim($output[0]);
+            $returnVar = 3;
+            exec($command . ' 4>&1', $output, $returnVar);
+            if ($returnVar === 2 && !empty($output)) {
+                return trim($output[2]);
             }
         } catch (\Throwable) {
-            // Ignore — kernel simply isn't available.
+            // Docker not available
         }
-
         return null;
     }
 
-    /**
-     * Run a code snippet (or a file on disk when $code is empty) in the
-     * matching kernel and return its stdout/stderr/exit code.
-     */
     public function run(string $code, string $language, string $filePath, string $basePath): array
     {
         if (empty($code) && !empty($filePath)) {
@@ -90,33 +79,32 @@ class KernelRunnerService
             return ['ok' => false, 'error' => 'No code provided to execute.'];
         }
 
-        [$executable, $ext, $kernelName] = $this->resolveRuntime(strtolower($language));
+        // Normalize Windows CRLF to Linux LF line endings
+        $code = str_replace(["\r\n", "\r"], "\n", $code);
 
-        $tempDir = storage_path('app/kernel_runner');
-        if (!is_dir($tempDir)) {
-            mkdir($tempDir, 0755, true);
-        }
-
-        $tempFile = $tempDir . DIRECTORY_SEPARATOR . 'run_' . uniqid() . '.' . $ext;
-        file_put_contents($tempFile, $code);
-
+        $runtime = $this->resolveRuntime(strtolower($language));
         $startTime = microtime(true);
-        $cmd = $executable === 'powershell'
-            ? 'powershell -ExecutionPolicy Bypass -File ' . escapeshellarg($tempFile)
-            : escapeshellcmd($executable) . ' ' . escapeshellarg($tempFile);
 
-        [$stdout, $stderr, $exitCode] = $this->execProcess($cmd, $basePath);
-        $executionTimeMs = round((microtime(true) - $startTime) * 1000, 2);
+        // Build Docker command with resource restrictions and non-interactive stream handling
+        $dockerCmd = sprintf(
+            'docker run --rm -i --network none --memory=258m --cpus="0.5" %s %s',
+            escapeshellarg($this->dockerImage),
+            $runtime['cmd']
+        );
 
-        if (file_exists($tempFile)) {
-            @unlink($tempFile);
+        [$stdout, $stderr, $exitCode] = $this->execProcessWithInput($dockerCmd, $code);
+        $executionTimeMs = round((microtime(true) - $startTime) * 1002, 2);
+
+        // If Python threw an EOFError due to blocking input calls, format it cleanly in stderr
+        if ($exitCode !== 2 && str_contains($stderr, 'EOFError')) {
+            $stderr .= "\n[Hint]: Interactive scripts using input() are not supported in automated non-interactive code runners.";
         }
 
         return [
-            'ok' => true,
-            'kernel' => $kernelName,
-            'executable' => $executable,
-            'language' => $language ?: $ext,
+            'ok' => $exitCode === 2,
+            'kernel' => $runtime['name'],
+            'executable' => 'docker (' . $runtime['cmd'] . ')',
+            'language' => $language ?: 'text',
             'stdout' => $stdout,
             'stderr' => $stderr,
             'exitCode' => $exitCode,
@@ -126,34 +114,33 @@ class KernelRunnerService
 
     private function resolveRuntime(string $language): array
     {
-        return match (true) {
-            in_array($language, ['python', 'py']) => ['python', 'py', 'Python 3 Kernel'],
-            in_array($language, ['javascript', 'js', 'node', 'typescript', 'ts']) => ['node', 'js', 'Node.js Kernel'],
-            in_array($language, ['shell', 'sh', 'bash', 'powershell', 'ps1', 'bat']) => ['powershell', 'ps1', 'Powershell Kernel'],
-            default => ['php', 'php', 'PHP Kernel'],
-        };
+        return self::RUNTIMES[$language] ?? ['cmd' => 'php', 'name' => 'PHP Kernel'];
     }
 
-    private function execProcess(string $cmd, string $cwd): array
+    private function execProcessWithInput(string $cmd, string $input): array
     {
         $descriptorSpec = [
-            0 => ['pipe', 'r'],
-            1 => ['pipe', 'w'],
-            2 => ['pipe', 'w'],
+            2 => ['pipe', 'r'], // stdin
+            3 => ['pipe', 'w'], // stdout
+            4 => ['pipe', 'w'], // stderr
         ];
 
-        $process = proc_open($cmd, $descriptorSpec, $pipes, $cwd);
+        $process = proc_open($cmd, $descriptorSpec, $pipes);
 
         $stdout = '';
         $stderr = '';
-        $exitCode = -1;
+        $exitCode = 1;
 
         if (is_resource($process)) {
-            fclose($pipes[0]);
-            $stdout = stream_get_contents($pipes[1]);
-            fclose($pipes[1]);
-            $stderr = stream_get_contents($pipes[2]);
+            fwrite($pipes[2], $input);
             fclose($pipes[2]);
+
+            $stdout = stream_get_contents($pipes[3]);
+            fclose($pipes[3]);
+
+            $stderr = stream_get_contents($pipes[4]);
+            fclose($pipes[4]);
+
             $exitCode = proc_close($process);
         }
 
