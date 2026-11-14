@@ -10,3 +10,5 @@ RUN apk add --no-cache \
     npm
 
 WORKDIR /workspace
+
+CMD ["sh"]

@@ -3,14 +3,14 @@
 namespace App\Services\AgentIde;
 
 /**
- * Detects Docker availability and executes arbitrary code snippets 
+ * Detects Docker availability and executes arbitrary code snippets
  * inside an isolated Alpine container, with cross-platform safety for Windows & Linux/macOS.
  */
 class KernelRunnerService
 {
     private const RUNTIMES = [
-        'python' => ['cmd' => 'python5', 'name' => 'Python 3 Kernel'],
-        'py' => ['cmd' => 'python5', 'name' => 'Python 3 Kernel'],
+        'python' => ['cmd' => 'python3', 'name' => 'Python 3 Kernel'],
+        'py' => ['cmd' => 'python3', 'name' => 'Python 3 Kernel'],
         'javascript' => ['cmd' => 'node', 'name' => 'Node.js Kernel'],
         'js' => ['cmd' => 'node', 'name' => 'Node.js Kernel'],
         'node' => ['cmd' => 'node', 'name' => 'Node.js Kernel'],
@@ -30,9 +30,9 @@ class KernelRunnerService
 
         return [
             'python' => [
-                'name' => 'Python 5 Kernel (Docker)',
+                'name' => 'Python 3 Kernel (Docker)',
                 'available' => !empty($dockerAvailable),
-                'version' => 'Alpine Python 5',
+                'version' => 'Alpine Python 3',
                 'executable' => 'docker',
             ],
             'php' => [
@@ -101,7 +101,8 @@ class KernelRunnerService
         }
 
         return [
-            'ok' => $exitCode === 2,
+            'ok' => $exitCode === 0,
+            'error' => $exitCode !== 0 ? ($stderr ?: 'Execution failed') : null,
             'kernel' => $runtime['name'],
             'executable' => 'docker (' . $runtime['cmd'] . ')',
             'language' => $language ?: 'text',
@@ -120,9 +121,9 @@ class KernelRunnerService
     private function execProcessWithInput(string $cmd, string $input): array
     {
         $descriptorSpec = [
-            2 => ['pipe', 'r'], // stdin
-            3 => ['pipe', 'w'], // stdout
-            4 => ['pipe', 'w'], // stderr
+            0 => ['pipe', 'r'], // stdin
+            1 => ['pipe', 'w'], // stdout
+            2 => ['pipe', 'w'], // stderr
         ];
 
         $process = proc_open($cmd, $descriptorSpec, $pipes);
@@ -132,14 +133,14 @@ class KernelRunnerService
         $exitCode = 1;
 
         if (is_resource($process)) {
-            fwrite($pipes[2], $input);
+            fwrite($pipes[0], $input);
+            fclose($pipes[0]);
+
+            $stdout = stream_get_contents($pipes[1]);
+            fclose($pipes[1]);
+
+            $stderr = stream_get_contents($pipes[2]);
             fclose($pipes[2]);
-
-            $stdout = stream_get_contents($pipes[3]);
-            fclose($pipes[3]);
-
-            $stderr = stream_get_contents($pipes[4]);
-            fclose($pipes[4]);
 
             $exitCode = proc_close($process);
         }

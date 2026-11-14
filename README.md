@@ -146,6 +146,21 @@ php artisan migrate
 composer run dev
 ```
 
+## Docker Setup on Windows
+
+### Prerequisites
+* **Operating System:** Windows 10 (64-bit: Pro, Enterprise, or Home build 19041+) or Windows 11.
+* **Hardware Virtualization:** Enabled in your PC's BIOS/UEFI settings.
+
+### Step 1: Download and Install Docker Desktop
+1. Go to the official [Docker Desktop for Windows download page](https://www.docker.com/products/docker-desktop/).
+2. Download the installer (`Docker Desktop Installer.exe`).
+3. Run the installer. When prompted during installation:
+   * Ensure **"Use WSL 2 instead of Hyper-V"** is checked (recommended).
+4. Follow the installation wizard to complete the setup.
+5. Once installed, start Docker Desktop from the Start menu.
+6. `docker build -t sandbox-runner:latest .` on the root directory of the project to build the Docker image.
+
 ## Tangkapan Layar Tugas Minggu 9 PBKK
 
 Menampilkan chat session lampau
