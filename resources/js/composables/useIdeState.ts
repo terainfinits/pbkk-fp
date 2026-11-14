@@ -32,6 +32,8 @@ export function useIdeState() {
   const workspaceName = ref('PBKK-FP');
   const projectTree = ref<any[]>([]);
   const lastGeneratedCode = ref('');
+  const proposal = ref<{path: string; code: string; language: string} | null>(null);
+  const proposals = ref<{path: string; code: string; language: string}[]>([]);
   const lastGeneratedTarget = ref('');
   const statusMessage = ref('Project ready');
   const agentStatusLabel = ref('Agent Engine Ready');
@@ -54,6 +56,8 @@ export function useIdeState() {
     workspaceName,
     projectTree,
     lastGeneratedCode,
+    proposal,
+    proposals,
     lastGeneratedTarget,
     statusMessage,
     agentStatusLabel,

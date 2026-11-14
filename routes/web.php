@@ -49,4 +49,6 @@ Route::middleware('auth')->group(function () {
     });
 });
 
+require __DIR__.'/harness.php';
+
 Route::fallback(fn() => response()->view('errors.404', [], 404));

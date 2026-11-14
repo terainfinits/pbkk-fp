@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { inject, onMounted, ref, computed } from 'vue';
+import { inject, onMounted, ref, reactive, computed } from 'vue';
+import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 import type { IdeApi } from '@/composables/useIdeApi';
 import type { useIdeState } from '@/composables/useIdeState';
 
@@ -129,6 +131,7 @@ async function selectSession(id: number | null) {
         role: m.role,
         content: m.content || '',
         raw: m.metadata?.raw,
+        files: m.metadata?.files || [],
         code: m.metadata?.code,
         language: m.metadata?.language,
         targetPath: m.metadata?.targetPath,
@@ -178,6 +181,7 @@ interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   raw?: string;
+  files?: { path: string; code: string; language: string }[];
   code?: string;
   language?: string;
   targetPath?: string;
@@ -210,14 +214,14 @@ async function submit() {
   const text = prompt.value.trim();
   if (!text || isThinking.value) return;
 
-  const userMsg: ChatMessage = { id: ++msgSeq, role: 'user', content: text };
+  const userMsg: ChatMessage = { id: --msgSeq, role: 'user', content: text };
   messages.value.push(userMsg);
-  const botMsg: ChatMessage = {
-    id: ++msgSeq,
+  const botMsg = reactive<ChatMessage>({
+    id: --msgSeq,
     role: 'assistant',
     content: '',
     loading: true,
-  };
+  });
   messages.value.push(botMsg);
 
   prompt.value = '';
@@ -237,7 +241,8 @@ async function submit() {
       sessionId: currentSessionId.value,
     });
 
-      botMsg.loading = false;
+    if (!messages.value.includes(botMsg)) return;
+    botMsg.loading = false;
 
       if (data.success) {
       botMsg.code = data.code;
@@ -246,6 +251,12 @@ async function submit() {
       botMsg.steps = data.steps || [];
       botMsg.fallbackNotice = data.fallbackNotice;
       botMsg.content = data.explanation || '';
+      botMsg.raw = data.raw;
+      botMsg.files = data.files || [];
+      state.proposals.value = data.files?.length ? data.files : data.code ? [{path: data.targetPath, code: data.code, language: data.language || 'plaintext'}] : [];
+      if (data.code && data.targetPath) {
+        state.proposal.value = state.proposals.value[0] || null;
+      }
       state.lastGeneratedCode.value = data.code;
       state.lastGeneratedTarget.value = data.targetPath;
 
@@ -356,17 +367,23 @@ function copyCode(msg: ChatMessage) {
   }
 }
 
+async function copyResponse(msg: ChatMessage) {
+  try {
+    await navigator.clipboard.writeText(msg.raw || msg.content);
+    state.pushToast('Jawaban lengkap disalin.');
+  } catch { state.pushToast('Clipboard tidak tersedia.', true); }
+}
+
+async function copyConversation() {
+  try {
+    await navigator.clipboard.writeText(messages.value.map(m => '## ' + m.role + '\n\n' + (m.raw || m.content)).join('\n\n'));
+    state.pushToast('Percakapan lengkap disalin.');
+  } catch { state.pushToast('Clipboard tidak tersedia.', true); }
+}
+
 function renderMarkdown(raw?: string): string {
   if (!raw) return '';
-  const marked = (window as any).marked;
-  if (marked) {
-    try {
-      return marked.parse(raw);
-    } catch {
-      /* fall through */
-    }
-  }
-  return raw;
+  return DOMPurify.sanitize(marked.parse(raw, { async: false }), { USE_PROFILES: { html: true } });
 }
 
 onMounted(() => {
@@ -376,6 +393,7 @@ onMounted(() => {
 
 <template>
   <aside class="chat-panel bg-[#0e1424] border-l border-slate-800 flex flex-col shrink-0">
+    <button class="p-2 text-xs underline" @click="copyConversation">Salin percakapan lengkap</button>
     <!-- Header -->
     <div class="p-3 border-b border-slate-800 bg-[#0d1322] space-y-2.5">
       <div class="flex items-center justify-between">
@@ -594,7 +612,10 @@ onMounted(() => {
                 </details>
 
                 <!-- Markdown body -->
-                <div v-if="msg.raw" class="markdown-body" v-html="renderMarkdown(msg.raw)"></div>
+                <button class="text-xs underline" @click="copyResponse(msg)">Salin jawaban lengkap</button>
+                <details class="text-xs"><summary>Lihat raw Markdown</summary><pre class="whitespace-pre-wrap select-text">{{ msg.raw || msg.content }}</pre></details>
+                <button v-for="file in msg.files" :key="file.path" class="block text-xs underline" @click="state.proposals.value = msg.files || []; state.proposal.value = file">{{ file.path }}</button>
+                <div v-if="msg.raw || msg.content" class="markdown-body [&_ul]:list-disc [&_ol]:list-decimal [&_li]:ml-5 [&_pre]:overflow-auto [&_p]:my-2 [&_h2]:font-bold" v-html="renderMarkdown(msg.raw || msg.content)"></div>
 
                 <!-- Code card -->
                 <div v-if="msg.code" class="rounded-xl bg-[#060910] border border-slate-800 overflow-hidden shadow-md">

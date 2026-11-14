@@ -4,6 +4,7 @@ import HeaderNav from '@/components/agent-ide/HeaderNav.vue';
 import SidebarExplorer from '@/components/agent-ide/SidebarExplorer.vue';
 import EditorPane from '@/components/agent-ide/EditorPane.vue';
 import ChatPanel from '@/components/agent-ide/ChatPanel.vue';
+import HarnessPanel from '@/components/agent-ide/HarnessPanel.vue';
 import SettingsModal from '@/components/agent-ide/SettingsModal.vue';
 import CreateModal from '@/components/agent-ide/CreateModal.vue';
 import ToastStack from '@/components/agent-ide/ToastStack.vue';
@@ -21,6 +22,7 @@ const state = useIdeState();
 
 // Modals
 const isSettingsOpen = ref(false);
+const harnessOpen = ref(false);
 const isCreateOpen = ref(false);
 const createType = ref<'file' | 'folder'>('file');
 
@@ -49,11 +51,13 @@ onMounted(() => {
   <div class="h-screen flex flex-col antialiased select-none bg-[#090d16] text-slate-200">
     <FileDropZone />
     <HeaderNav @open-settings="isSettingsOpen = true" />
+    <button class="self-end px-4 py-1 text-sm" @click="harnessOpen = !harnessOpen">{{ harnessOpen ? 'Kembali ke chat' : 'Tugas coding' }}</button>
 
     <div class="flex-1 flex overflow-hidden">
       <SidebarExplorer />
       <EditorPane />
-      <ChatPanel />
+      <HarnessPanel v-if="harnessOpen" />
+      <ChatPanel v-else />
     </div>
 
     <SettingsModal :is-open="isSettingsOpen" @close="isSettingsOpen = false" />

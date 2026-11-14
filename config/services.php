@@ -36,6 +36,7 @@ return [
     ],
 
     'senopati' => [
+        'endpoint' => env('SENOPATI_ENDPOINT'),
         'base_url' => env('SENOPATI_BASE_URL', 'https://senopati.its.ac.id'),
         'api_key' => env('SENOPATI_API_KEY'),
     ],

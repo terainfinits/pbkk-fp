@@ -1,8 +1,8 @@
 import { createInertiaApp } from '@inertiajs/vue3';
-import { createApp, h } from 'vue';
+import { createApp, h, type DefineComponent } from 'vue';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
-const pages = import.meta.glob('./pages/**/*.vue');
+const pages = import.meta.glob<DefineComponent>('./pages/**/*.vue', { import: 'default' });
 
 void createInertiaApp({
     resolve: (name) => {

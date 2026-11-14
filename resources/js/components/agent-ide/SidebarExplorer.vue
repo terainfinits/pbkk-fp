@@ -185,7 +185,7 @@ onBeforeUnmount(() => {
     <div class="p-2 bg-slate-900/60 border-b border-slate-800/80 text-[11px]">
       <div class="flex items-center justify-between text-slate-400 mb-1">
         <span>AI Target Folder:</span>
-        <button class="text-indigo-400 hover:underline" @click="targetDirectory.value = ''">Reset Root</button>
+        <button class="text-indigo-400 hover:underline" @click="targetDirectory = ''">Reset Root</button>
       </div>
       <div class="px-2 py-1 bg-slate-950 rounded text-indigo-300 font-mono text-[10px] truncate border border-slate-800">
         {{ targetDisplay() }}

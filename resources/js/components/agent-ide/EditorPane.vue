@@ -54,7 +54,7 @@ const handleEditorMount = async () => {
       base: 'vs-dark', inherit: true, rules: [],
       colors: { 'editor.background': '#0b0f1a' }
     });
-    monaco.editor.setTheme('my-custom-dark');
+    mon.editor.setTheme('my-custom-dark');
   }
 };
 
@@ -87,6 +87,30 @@ function closeTab(path: string) {
   if (state.activeTabPath.value === path) {
     const next = state.openTabs[state.openTabs.length - 1];
     state.activeTabPath.value = next ? next.path : null;
+  }
+}
+
+async function acceptProposal() {
+  const proposal = state.proposal.value;
+  if (!proposal) return;
+  try {
+    const result = await api.saveFile(proposal.path, proposal.code);
+    if (!result.success) throw new Error(result.error || 'Gagal menyimpan file');
+    const tab = state.openTabs.find(t => t.path === proposal.path);
+    if (tab) {
+      tab.content = proposal.code;
+      tab.isDirty = false;
+    } else {
+      state.openTabs.push({path: proposal.path, filename: proposal.path.split('/').pop() || proposal.path,
+        extension: proposal.path.split('.').pop() || '', content: proposal.code, isDirty: false});
+    }
+    state.activeTabPath.value = proposal.path;
+    code.value = proposal.code;
+    state.proposals.value = state.proposals.value.filter(p => p !== proposal);
+    if (state.proposal.value === proposal) state.proposal.value = state.proposals.value[0] || null;
+    window.dispatchEvent(new CustomEvent('ide:refresh-tree'));
+  } catch (error) {
+    state.pushToast(String(error), true);
   }
 }
 
@@ -190,8 +214,14 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
+    <div v-if="state.proposal.value" class="px-4 py-2 flex gap-3 items-center text-xs bg-slate-800">
+      <span class="flex-1">Pratinjau · {{ state.proposal.value.path }}</span>
+      <button @click="acceptProposal">Terapkan</button>
+      <button @click="state.proposals.value = state.proposals.value.filter(p => p !== state.proposal.value); state.proposal.value = state.proposals.value[0] || null">Tolak</button>
+    </div>
     <!-- Breadcrumbs -->
-    <div class="h-8 bg-[#0d1220] border-b border-slate-800/60 px-4 flex items-center justify-between text-xs text-slate-400 shrink-0">
+    <div v-if="state.proposals.value.length" class="flex gap-3 px-4 overflow-auto text-xs"><button v-for="file in state.proposals.value" :key="file.path" @click="state.proposal.value = file">{{ file.path }}</button></div>
+    <div v-if="!state.proposal.value" class="h-8 bg-[#0d1220] border-b border-slate-800/60 px-4 flex items-center justify-between text-xs text-slate-400 shrink-0">
       <!-- ... existing breadcrumbs code ... -->
       <div class="flex items-center gap-2">
         <i class="fa-regular fa-file-code text-indigo-400"></i>
@@ -212,9 +242,12 @@ onBeforeUnmount(() => {
     <!-- Editor Work Area -->
     <div class="flex-1 relative overflow-hidden flex flex-col bg-[#0c101c]">
       <div class="flex-1 relative h-full overflow-hidden">
+        <component v-if="state.proposal.value && CodeEditorComponent" :is="CodeEditorComponent"
+          :key="'proposal:' + state.proposal.value.path" :value="state.proposal.value.code"
+          :language="state.proposal.value.language" theme="vs-dark" :options="{ readOnly: true, automaticLayout: true }" class="h-full w-full" />
         <component
           :is="CodeEditorComponent"
-          v-if="activeTab && CodeEditorComponent"
+          v-else-if="activeTab && CodeEditorComponent"
           :key="`${activeTab.path}::${editorLanguage}`"
           ref="editorRef"
           v-model:value="code"

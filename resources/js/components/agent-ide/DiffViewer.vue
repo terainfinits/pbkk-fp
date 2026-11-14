@@ -26,6 +26,7 @@ const props = defineProps<{
   language?: string;
   targetPath?: string;
   isNewFile?: boolean;
+  reviewOnly?: boolean;
 }>();
 
 const emit = defineEmits(['close', 'apply']);
@@ -119,6 +120,7 @@ function handleClose() {
         </div>
         <div class="flex items-center gap-2">
           <button
+            v-if="!reviewOnly"
             @click="handleApply"
             class="px-3 py-1.5 rounded bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-[11px] flex items-center gap-1.5 shadow transition"
           >
@@ -158,7 +160,7 @@ function handleClose() {
           theme="my-custom-dark"
           :options="{
             renderSideBySide: true,
-            readOnly: false,
+            readOnly: !!reviewOnly,
             originalEditable: false,
             minimap: { enabled: false },
             automaticLayout: true,

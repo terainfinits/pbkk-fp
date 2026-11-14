@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { inject, watch } from 'vue';
+import { inject, reactive, ref, watch } from 'vue';
 import type { useIdeState } from '@/composables/useIdeState';
 
 const props = defineProps<{ isOpen: boolean }>();
@@ -16,26 +16,37 @@ const fields = [
   { key: 'ollama_cloud', label: 'Ollama Cloud API Key', placeholder: 'fe...' },
   { key: 'senopati', label: 'Senopati API Key', placeholder: 'sk-...' },
 ];
+const keys = reactive<Record<string, string>>({});
+const storageError = ref('');
 
 watch(
   () => props.isOpen,
   open => {
     if (!open) return;
-    fields.forEach(f => {
-      const el = document.getElementById('key-' + f.key) as HTMLInputElement | null;
-      if (el) el.value = localStorage.getItem('agent_key_' + f.key) || '';
-    });
+    storageError.value = '';
+    try {
+      fields.forEach(f => {
+        keys[f.key] = localStorage.getItem('agent_key_' + f.key) || '';
+      });
+    } catch {
+      storageError.value = 'Browser memblokir penyimpanan API key. Izinkan penyimpanan situs lalu coba kembali.';
+    }
   },
   { immediate: true }
 );
 
 function save() {
-  fields.forEach(f => {
-    const el = document.getElementById('key-' + f.key) as HTMLInputElement | null;
-    const v = el?.value.trim() || '';
-    localStorage.setItem('agent_key_' + f.key, v);
-    if (f.key === 'ollama_cloud') localStorage.setItem('agent_key_ollama', v);
-  });
+  storageError.value = '';
+  try {
+    fields.forEach(f => {
+      const v = (keys[f.key] || '').trim();
+      localStorage.setItem('agent_key_' + f.key, v);
+      if (f.key === 'ollama_cloud') localStorage.setItem('agent_key_ollama', v);
+    });
+  } catch {
+    storageError.value = 'API key gagal disimpan. Periksa izin penyimpanan browser lalu coba kembali.';
+    return;
+  }
   state.pushToast('API Keys saved successfully!');
   emit('close');
 }
@@ -63,13 +74,16 @@ function save() {
           <label class="block font-medium text-slate-300 mb-1">{{ f.label }}</label>
           <input
             :id="'key-' + f.key"
+            v-model="keys[f.key]"
             type="password"
+            autocomplete="off"
             :placeholder="f.placeholder"
             class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-slate-200 outline-none focus:border-indigo-500"
           />
         </div>
       </div>
 
+      <p v-if="storageError" role="alert" class="text-xs text-red-300">{{ storageError }}</p>
       <div class="flex justify-end gap-2 pt-2 border-t border-slate-800">
         <button class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition" @click="save">
           Save Keys to Storage

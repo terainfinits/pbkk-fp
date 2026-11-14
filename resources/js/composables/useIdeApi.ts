@@ -46,7 +46,15 @@ async function post<T = any>(url: string, body: unknown): Promise<T> {
     body: JSON.stringify(body),
   });
   const ct = res.headers.get('content-type') || '';
-  if (ct.includes('application/json')) return res.json();
+  if (ct.includes('application/json')) {
+    const data = await res.json();
+    if (!res.ok) {
+      return { ...data, success: false, error: res.status === 419
+        ? 'Sesi berakhir. Muat ulang halaman lalu coba kembali.'
+        : data.error || data.message || `HTTP ${res.status}` } as T;
+    }
+    return data;
+  }
   const text = await res.text();
   return { success: false, error: text || `HTTP ${res.status}` } as T;
 }

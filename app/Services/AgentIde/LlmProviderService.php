@@ -177,7 +177,7 @@ class LlmProviderService
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $apiKey,
                 'Content-Type' => 'application/json',
-            ])->timeout(90)->post($endpoint, [
+            ])->connectTimeout(10)->timeout(120)->post($endpoint, [
                 'model' => $effectiveModel,
                 'messages' => [
                     ['role' => 'system', 'content' => $systemContext],

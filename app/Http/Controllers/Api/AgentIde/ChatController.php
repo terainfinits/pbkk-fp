@@ -30,6 +30,8 @@ class ChatController extends Controller
      */
     public function prompt(Request $request)
     {
+        // PHP on Windows counts time spent waiting for the provider as execution time.
+        set_time_limit(150);
         $provider = $request->input('provider', 'ollama_cloud');
         $model = $request->input('model', 'kimi-k2.7-code');
         $prompt = $request->input('prompt', '');
@@ -116,6 +118,7 @@ class ChatController extends Controller
                     'content' => $formatted['explanation'] ?? '',
                     'metadata' => [
                         'raw' => $formatted['raw'] ?? '',
+                        'files' => $formatted['files'] ?? [],
                         'code' => $formatted['code'] ?? null,
                         'language' => $formatted['language'] ?? null,
                         'targetPath' => $formatted['targetPath'] ?? null,

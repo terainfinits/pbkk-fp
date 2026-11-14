@@ -13,6 +13,14 @@ class AgentResponseFormatter
     {
         $suggestedPath = $this->deriveTargetPath($rawText, $prompt, $targetFile, $targetDirectory);
         [$language, $code] = $this->extractCodeBlock($rawText);
+        $files = [];
+        preg_match_all('/(?:#{1,6}\s*)?\[FILE:\s*([^\]\r\n]+)\]\s*```([\w-]*)\r?\n([\s\S]*?)```/i', $rawText, $matches, PREG_SET_ORDER);
+        foreach ($matches as $match) {
+            $files[] = ['path' => trim($match[1]), 'language' => $match[2] ?: 'plaintext', 'code' => rtrim($match[3], "\r\n")];
+        }
+        if (!$files && $code !== '') {
+            $files[] = ['path' => $suggestedPath, 'language' => $language, 'code' => $code];
+        }
 
         $steps = [
             ['title' => 'Analyzing Requirements', 'detail' => "Parsed prompt using {$provider} ({$model}) and evaluated target context."],
@@ -26,6 +34,7 @@ class AgentResponseFormatter
             'provider' => $provider,
             'model' => $model,
             'raw' => $rawText,
+            'files' => $files,
             'steps' => $steps,
             'code' => $code,
             'language' => $language,
