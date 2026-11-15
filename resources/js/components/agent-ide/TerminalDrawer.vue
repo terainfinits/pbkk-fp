@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { inject, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, inject, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
@@ -8,7 +8,10 @@ import type { useIdeState } from '@/composables/useIdeState';
 
 const { api, state } = inject<{ api: IdeApi; state: ReturnType<typeof useIdeState> }>('ide')!;
 
+/* ─── Terminal state ─── */
 const terminalContainer = ref<HTMLDivElement | null>(null);
+const outputRef = ref<HTMLDivElement | null>(null);
+
 const activeTab = ref<'shell' | 'kernel'>('shell');
 const isMinimized = ref(false);
 const execTime = ref<number | null>(null);
@@ -20,6 +23,29 @@ let socket: WebSocket | null = null;
 let resizeObserver: ResizeObserver | null = null;
 let isUnmounting = false;
 let isAuthenticated = false;
+
+interface LogItem {
+  id: number;
+  type: 'command' | 'output' | 'error' | 'system' | 'meta';
+  text: string;
+  prompt?: string;
+}
+
+const kernelLogs = ref<LogItem[]>([]);
+let logSeq = 0;
+const nextLogId = () => ++logSeq;
+
+const visibleLogs = computed(() => kernelLogs.value);
+
+const scrollToBottom = () => {
+  nextTick(() => {
+    if (outputRef.value) {
+      outputRef.value.scrollTop = outputRef.value.scrollHeight;
+    }
+  });
+};
+
+/* ─── WebSocket Docker terminal ─── */
 
 function sendResize() {
   if (
@@ -44,8 +70,8 @@ async function connectTerminal() {
   try {
     connectionStatus.value = 'Requesting session';
 
-    // Request a dynamically generated JWT ticket from Laravel.
     const session: TerminalSessionResponse = await api.createTerminalSession();
+
     console.log('Terminal session response:', session);
 
     if (isUnmounting) return;
@@ -146,11 +172,11 @@ async function connectTerminal() {
       ? error.message
       : 'Failed to create terminal session.';
 
-    term.writeln(`\r\n\x1b[31m${message}\x1b[0m`);
+    term?.writeln(`\r\n\x1b[31m${message}\x1b[0m`);
   }
 }
 
-/* ─── Kernel Run Handler ─── */
+/* ─── Kernel output ─── */
 
 interface KernelRunDetail {
   code: string;
@@ -165,17 +191,18 @@ async function runKernel(detail: KernelRunDetail) {
     isMinimized.value = false;
   }
 
-  await nextTick();
-
-  if (!term) return;
-
   const lang = detail.language
     || (detail.path ? detail.path.split('.').pop() : 'php')
     || 'php';
 
-  term.writeln(
-    `\r\n\x1b[36m➜ Executing ${lang.toUpperCase()} kernel${detail.path ? ` (${detail.path})` : ''}...\x1b[0m`,
-  );
+  kernelLogs.value.push({
+    id: nextLogId(),
+    type: 'command',
+    prompt: '➜',
+    text: `Executing ${lang.toUpperCase()} kernel${detail.path ? ` (${detail.path})` : ''}...`,
+  });
+
+  scrollToBottom();
 
   const data = await api.runCode(detail.code, lang, detail.path || '');
 
@@ -183,27 +210,45 @@ async function runKernel(detail: KernelRunDetail) {
 
   if (data.success) {
     if (data.stdout) {
-      term.writeln(data.stdout.replace(/\n/g, '\r\n'));
+      kernelLogs.value.push({
+        id: nextLogId(),
+        type: 'output',
+        text: data.stdout,
+      });
     }
 
     if (data.stderr) {
-      term.writeln(`\x1b[31m${data.stderr.replace(/\n/g, '\r\n')}\x1b[0m`);
+      kernelLogs.value.push({
+        id: nextLogId(),
+        type: 'error',
+        text: data.stderr,
+      });
     }
 
     if (!data.stdout && !data.stderr) {
-      term.writeln(
-        `\x1b[90m[Process exited with code ${data.exitCode} (No output)]\x1b[0m`,
-      );
+      kernelLogs.value.push({
+        id: nextLogId(),
+        type: 'meta',
+        text: `[Process exited with code ${data.exitCode} (No output)]`,
+      });
     }
 
-    term.writeln(
-      `\x1b[90mExit Code: ${data.exitCode} | Time: ${data.executionTimeMs}ms\x1b[0m`,
-    );
+    kernelLogs.value.push({
+      id: nextLogId(),
+      type: 'meta',
+      text: `Exit Code: ${data.exitCode} | Time: ${data.executionTimeMs}ms`,
+    });
 
     state.pushToast(`Code executed in ${data.kernel} (${data.executionTimeMs}ms)`);
   } else {
-    term.writeln(`\x1b[31mError: ${data.error || 'Execution failed'}\x1b[0m`);
+    kernelLogs.value.push({
+      id: nextLogId(),
+      type: 'error',
+      text: `Error: ${data.error || 'Execution failed'}`,
+    });
   }
+
+  scrollToBottom();
 }
 
 function handleKernelRun(event: Event) {
@@ -211,21 +256,13 @@ function handleKernelRun(event: Event) {
   void runKernel(customEvent.detail);
 }
 
-/* ─── Terminal Controls ─── */
+/* ─── Terminal controls ─── */
 
 function clearActive() {
-  if (!term) return;
-
   if (activeTab.value === 'shell') {
-    if (
-      isAuthenticated &&
-      socket?.readyState === WebSocket.OPEN
-    ) {
-      // Ctrl+L asks the shell to clear and redraw its prompt.
-      socket.send(new Uint8Array([0x0c]));
-    }
+    term?.clear();
   } else {
-    term.clear();
+    kernelLogs.value = [];
   }
 }
 
@@ -233,7 +270,6 @@ function handleTerminalInput(data: string) {
   if (activeTab.value !== 'shell') return;
   if (!isAuthenticated || socket?.readyState !== WebSocket.OPEN) return;
 
-  // Send raw terminal input as a WebSocket binary frame.
   socket.send(new TextEncoder().encode(data));
 }
 
@@ -260,15 +296,16 @@ onMounted(() => {
   }
 
   term.writeln('\x1b[90mConnecting to Docker terminal...\x1b[0m');
-
   term.onData(handleTerminalInput);
 
   void connectTerminal();
 
   if (terminalContainer.value) {
     resizeObserver = new ResizeObserver(() => {
-      fitAddon?.fit();
-      sendResize();
+      if (activeTab.value === 'shell') {
+        fitAddon?.fit();
+        sendResize();
+      }
     });
 
     resizeObserver.observe(terminalContainer.value);
@@ -297,15 +334,22 @@ onUnmounted(() => {
 
 watch(isMinimized, () => {
   nextTick(() => {
-    fitAddon?.fit();
-    sendResize();
+    if (activeTab.value === 'shell') {
+      fitAddon?.fit();
+      sendResize();
+    }
   });
 });
 
 watch(activeTab, () => {
   nextTick(() => {
-    fitAddon?.fit();
-    term?.focus();
+    if (activeTab.value === 'shell') {
+      fitAddon?.fit();
+      sendResize();
+      term?.focus();
+    } else {
+      scrollToBottom();
+    }
   });
 });
 </script>
@@ -328,6 +372,7 @@ watch(activeTab, () => {
           <i class="fa-solid fa-terminal text-cyan-400 text-[10px]"></i>
           <span>Terminal</span>
         </button>
+
         <button
           class="terminal-tab px-3 py-1 rounded-t flex items-center gap-1.5 transition"
           :class="activeTab === 'kernel'
@@ -339,27 +384,84 @@ watch(activeTab, () => {
           <span>Kernel</span>
         </button>
 
-        <span class="ml-2 px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-mono">
-          Docker Sandbox Ready
+        <span
+          v-if="activeTab === 'shell'"
+          class="ml-2 px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-mono"
+        >
+          {{ connectionStatus }}
         </span>
 
-        <span v-if="execTime !== null" class="text-[10px] text-slate-500 font-mono">{{ execTime }}ms</span>
+        <span
+          v-else
+          class="ml-2 px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-mono"
+        >
+          System Kernel Ready
+        </span>
+
+        <span v-if="execTime !== null" class="text-[10px] text-slate-500 font-mono">
+          {{ execTime }}ms
+        </span>
       </div>
+
       <div class="flex items-center gap-2 text-[11px]">
-        <button class="px-2 py-0.5 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition" @click="clearActive">
+        <button
+          class="px-2 py-0.5 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition"
+          @click="clearActive"
+        >
           <i class="fa-solid fa-trash-can mr-1 text-[10px]"></i> Clear
         </button>
-        <button class="px-2 py-0.5 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition" @click="isMinimized = !isMinimized">
-          <i class="fa-solid text-[10px]" :class="isMinimized ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+
+        <button
+          class="px-2 py-0.5 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition"
+          @click="isMinimized = !isMinimized"
+        >
+          <i
+            class="fa-solid text-[10px]"
+            :class="isMinimized ? 'fa-chevron-up' : 'fa-chevron-down'"
+          ></i>
         </button>
       </div>
     </div>
 
-    <!-- Xterm Container -->
+    <!-- Docker terminal: shell tab only -->
     <div
-      v-show="!isMinimized"
+      v-show="!isMinimized && activeTab === 'shell'"
       ref="terminalContainer"
       class="flex-1 p-1 bg-[#0c101c] overflow-hidden select-text"
     ></div>
+
+    <!-- Original independent kernel output -->
+    <div
+      v-show="!isMinimized && activeTab === 'kernel'"
+      ref="outputRef"
+      class="flex-1 p-3 overflow-y-auto font-mono text-[11px] leading-5 text-slate-300 bg-[#060910] space-y-1 select-text"
+    >
+      <div v-for="log in visibleLogs" :key="log.id">
+        <div
+          v-if="log.type === 'command'"
+          class="flex items-center gap-2 text-slate-200 font-semibold mt-1"
+        >
+          <span class="text-cyan-400 font-bold">{{ log.prompt }}</span>
+          <span>{{ log.text }}</span>
+        </div>
+
+        <pre
+          v-else-if="log.type === 'output'"
+          class="text-slate-300 whitespace-pre-wrap pl-4"
+        >{{ log.text }}</pre>
+
+        <pre
+          v-else-if="log.type === 'error'"
+          class="text-rose-400 whitespace-pre-wrap pl-4"
+        >{{ log.text }}</pre>
+
+        <div
+          v-else-if="log.type === 'meta'"
+          class="text-[10px] text-slate-500 pl-4"
+        >
+          {{ log.text }}
+        </div>
+      </div>
+    </div>
   </div>
 </template>
