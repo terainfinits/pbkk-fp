@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\AgentIde\ChatController;
 use App\Http\Controllers\Api\AgentIde\ChatSessionController;
 use App\Http\Controllers\Api\AgentIde\FileController;
 use App\Http\Controllers\Api\AgentIde\KernelController;
+use App\Http\Controllers\Api\AgentIde\TerminalController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -45,6 +46,7 @@ Route::middleware('auth')->group(function () {
             Route::delete('/chats/{id}', [ChatSessionController::class, 'destroy'])->name('chats.destroy');
 
             Route::post('/terminal/execute', [\App\Http\Controllers\Api\AgentIde\TerminalController::class, 'execute'])->name('terminal.execute');
+            Route::post('/terminal/session', [TerminalController::class, 'createSession'])->name('terminal.session');
         });
     });
 });

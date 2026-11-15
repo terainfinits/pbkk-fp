@@ -11,4 +11,4 @@ RUN apk add --no-cache \
 
 WORKDIR /workspace
 
-CMD ["sh"]
+CMD ["bash"]

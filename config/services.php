@@ -41,4 +41,11 @@ return [
         'api_key' => env('SENOPATI_API_KEY'),
     ],
 
+    'terminal' => [
+        'issuer' => env('TERMINAL_JWT_ISSUER', 'laravel-ide'),
+        'audience' => env('TERMINAL_JWT_AUDIENCE', 'terminal-gateway'),
+        'secret' => env('TERMINAL_JWT_SECRET'),
+        'ws_url' => env('TERMINAL_WS_URL', 'ws://127.0.0.1:8081/terminal'),
+    ],
+
 ];

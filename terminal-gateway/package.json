@@ -1,0 +1,29 @@
+{
+  "name": "terminal-gateway",
+  "version": "1.0.0",
+  "description": "",
+  "private": true,
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "dev:token": "tsx src/dev-token.ts"
+  },
+  "dependencies": {
+    "dockerode": "^5.0.1",
+    "dotenv": "^18.0.10",
+    "jose": "^6.2.17",
+    "ws": "^8.23.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/dockerode": "^4.0.2",
+    "@types/node": "^26.6.6",
+    "@types/ws": "^8.18.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}

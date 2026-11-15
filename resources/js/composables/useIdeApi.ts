@@ -13,6 +13,7 @@ export interface IdeRoutes {
   agentPrompt: string;
   chats?: string;
   terminalExecute: string;
+  terminalSession: string;
 }
 
 export const defaultRoutes: IdeRoutes = {
@@ -28,6 +29,7 @@ export const defaultRoutes: IdeRoutes = {
   agentPrompt: '/ide/api/agent/prompt',
   chats: '/ide/api/chats',
   terminalExecute: '/ide/api/terminal/execute',
+  terminalSession: '/ide/api/terminal/session',
 };
 
 function csrf(): string {
@@ -143,7 +145,16 @@ deleteFile: (path: string) => post(routes.fileDelete, { path }),
     deleteChatSession: (id: number) => del(`${chatsEndpoint}/${id}`),
     terminalExecute: (command: string, cwd = '') =>
       post(routes.terminalExecute, { command, cwd }),
+        createTerminalSession: () =>
+  post<TerminalSessionResponse>(routes.terminalSession, {}),
   };
+}
+
+export interface TerminalSessionResponse {
+  session_id: string;
+  ticket: string;
+  ws_url: string;
+  expires_in: number;
 }
 
 export type IdeApi = ReturnType<typeof createIdeApi>;
