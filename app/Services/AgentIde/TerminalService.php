@@ -4,6 +4,7 @@ namespace App\Services\AgentIde;
 
 use Firebase\JWT\JWT;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use RuntimeException;
 
@@ -11,25 +12,28 @@ class TerminalService
 {
     public function createSession(Authenticatable $user): array
     {
-        $workspacePath = $this->resolveWorkspacePath($user);
+        $userId = (string) $user->getAuthIdentifier();
 
-        if (!is_dir($workspacePath)) {
-            throw new RuntimeException('Workspace not found.');
-        }
+        $workspacePath = $this->resolveWorkspacePath();
 
-        $sessionId = (string) Str::uuid();
+        $sessionId = Cache::lock("terminal-session-lock:{$userId}", 10)
+            ->block(5, function () use ($userId) {
+                return Cache::rememberForever(
+                    "terminal-session:{$userId}",
+                    fn () => (string) Str::uuid()
+                );
+            });
 
         $now = time();
 
         $payload = [
             'iss' => config('services.terminal.issuer'),
             'aud' => config('services.terminal.audience'),
-            'sub' => (string) $user->getAuthIdentifier(),
+            'sub' => $userId,
             'jti' => (string) Str::uuid(),
             'iat' => $now,
             'nbf' => $now,
             'exp' => $now + 60,
-
             'session_id' => $sessionId,
             'workspace_path' => $workspacePath,
         ];
@@ -48,18 +52,16 @@ class TerminalService
         ];
     }
 
-    private function resolveWorkspacePath(Authenticatable $user): string
+    private function resolveWorkspacePath(): string
     {
-        $path = base_path('folder-generated/');
-
-        if (!$path) {
-            throw new RuntimeException('IDE_WORKSPACE_PATH is not configured.');
-        }
+        $path = base_path('folder-generated');
 
         $realPath = realpath($path);
 
         if ($realPath === false || !is_dir($realPath)) {
-            throw new RuntimeException('Workspace directory not found.');
+            throw new RuntimeException(
+                "Workspace directory not found: {$path}"
+            );
         }
 
         return $realPath;

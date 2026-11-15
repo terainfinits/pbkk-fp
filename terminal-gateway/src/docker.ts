@@ -1,4 +1,3 @@
-
 import Docker from "dockerode";
 import fs from "node:fs";
 
@@ -11,6 +10,8 @@ const docker =
 
 const image = process.env.DOCKER_IMAGE ?? "sandbox-runner:latest";
 
+const TERMINAL_LABEL = "com.laravel-ide.terminal";
+
 export type DockerTerminalStream = NodeJS.ReadWriteStream & {
   destroy(): void;
 };
@@ -19,6 +20,9 @@ export interface TerminalSession {
   container: Docker.Container;
   stream?: DockerTerminalStream;
   workspacePath: string;
+  userId: string;
+  sessionId: string;
+  lastDetachedAt: number | null;
 }
 
 function validateWorkspacePath(input: string): string {
@@ -40,7 +44,9 @@ function validateWorkspacePath(input: string): string {
 }
 
 export async function createTerminal(
-  inputWorkspacePath: string
+  inputWorkspacePath: string,
+  userId: string,
+  sessionId: string
 ): Promise<TerminalSession> {
   const workspacePath = validateWorkspacePath(inputWorkspacePath);
 
@@ -55,6 +61,12 @@ export async function createTerminal(
     AttachStdin: true,
     AttachStdout: true,
     AttachStderr: true,
+
+    Labels: {
+      [TERMINAL_LABEL]: "true",
+      "com.laravel-ide.user-id": userId,
+      "com.laravel-ide.session-id": sessionId,
+    },
 
     HostConfig: {
       NetworkMode: "none",
@@ -91,6 +103,9 @@ export async function createTerminal(
       container,
       stream,
       workspacePath,
+      userId,
+      sessionId,
+      lastDetachedAt: null,
     };
   } catch (error) {
     try {
@@ -157,5 +172,29 @@ export async function terminateTerminal(
     await session.container.remove({ force: true });
   } catch {
     // Ignore removal errors.
+  }
+}
+
+export async function cleanupOrphanedTerminals(): Promise<void> {
+  const containers = await docker.listContainers({
+    all: true,
+    filters: JSON.stringify({
+      label: [`${TERMINAL_LABEL}=true`],
+    }),
+  });
+
+  for (const info of containers) {
+    try {
+      const container = docker.getContainer(info.Id);
+
+      await container.remove({ force: true });
+
+      console.log(`Removed orphaned terminal container: ${info.Id}`);
+    } catch (error) {
+      console.error(
+        `Failed to remove orphaned container ${info.Id}:`,
+        error
+      );
+    }
   }
 }

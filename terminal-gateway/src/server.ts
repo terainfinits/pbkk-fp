@@ -1,27 +1,37 @@
 import "dotenv/config";
 
-import { createServer } from "node:http";
+import http from "node:http";
 import { setupWebSocket } from "./websocket.js";
+import { cleanupOrphanedTerminals } from "./docker.js";
 
-const port = Number(process.env.TERMINAL_PORT ?? 8081);
 const host = process.env.TERMINAL_HOST ?? "127.0.0.1";
+const port = Number(process.env.PORT ?? 8081);
 
-const server = createServer((req, res) => {
-  if (req.url === "/health") {
-    res.writeHead(200, {
-      "Content-Type": "application/json",
+async function startServer() {
+    await cleanupOrphanedTerminals();
+
+    const server = http.createServer((req, res) => {
+        if (req.url === "/health") {
+            res.writeHead(200, {
+                "Content-Type": "application/json",
+            });
+
+            res.end(JSON.stringify({ status: "ok" }));
+            return;
+        }
+
+        res.writeHead(404);
+        res.end();
     });
 
-    res.end(JSON.stringify({ status: "ok" }));
-    return;
-  }
+    setupWebSocket(server);
 
-  res.writeHead(404);
-  res.end("Not found");
-});
+    server.listen(port, host, () => {
+        console.log(`Terminal gateway listening on ${host}:${port}`);
+    });
+}
 
-setupWebSocket(server);
-
-server.listen(port, host, () => {
-  console.log(`Terminal gateway listening on ${host}:${port}`);
+startServer().catch((error) => {
+    console.error("Failed to start terminal gateway:", error);
+    process.exit(1);
 });
