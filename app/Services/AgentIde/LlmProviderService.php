@@ -15,30 +15,35 @@ class LlmProviderService
     /**
      * @return array{success: bool, text?: string, error?: string, network_error?: bool}
      */
-    public function dispatch(string $provider, string $model, string $apiKey, string $systemContext, string $prompt, array $history = []): array
+    public function dispatch(string $provider, string $model, string $apiKey, string $systemContext, string $prompt, array $history = [], ?callable $delta = null): array
     {
         return match (strtolower($provider)) {
-            'gemini' => $this->callGemini($model, $apiKey, $systemContext, $prompt),
-            'claude' => $this->callClaude($model, $apiKey, $systemContext, $prompt),
-            'moonshot', 'kimi' => $this->callMoonshot($model, $apiKey, $systemContext, $prompt),
-            'gpt', 'openai', 'deepseek' => $this->callOpenAiCompatible($provider, $model, $apiKey, $systemContext, $prompt),
-            'ollama', 'ollama_cloud', 'ollama-cloud', 'ollamacloud' => $this->callOllama($model, $apiKey, $systemContext, $prompt),
-            'senopati' => $this->callSenopati($model, $apiKey, $systemContext, $prompt),
+            'gemini' => $this->callGemini($model, $apiKey, $systemContext, $prompt, $delta),
+            'claude' => $this->callClaude($model, $apiKey, $systemContext, $prompt, $delta),
+            'moonshot', 'kimi' => $this->callMoonshot($model, $apiKey, $systemContext, $prompt, $delta),
+            'gpt', 'openai', 'deepseek' => $this->callOpenAiCompatible($provider, $model, $apiKey, $systemContext, $prompt, $delta),
+            'ollama', 'ollama_cloud', 'ollama-cloud', 'ollamacloud' => $this->callOllama($model, $apiKey, $systemContext, $prompt, $delta),
+            'senopati' => $this->callSenopati($model, $apiKey, $systemContext, $prompt, $delta),
             default => ['success' => false, 'error' => "Unknown provider: {$provider}"],
         };
     }
 
-    private function callGemini(string $model, string $apiKey, string $systemContext, string $prompt): array
+    private function callGemini(string $model, string $apiKey, string $systemContext, string $prompt, ?callable $delta): array
     {
         $effectiveModel = $model ?: 'gemini-3.6-flash';
         $url = "https://generativelanguage.googleapis.com/v1beta/models/{$effectiveModel}:generateContent?key={$apiKey}";
 
-        $response = Http::timeout(60)->post($url, [
+        $http = Http::timeout(60);
+        $payload = [
             'contents' => [[
                 'role' => 'user',
                 'parts' => [['text' => $systemContext . "\n\nUser Request: " . $prompt]],
             ]],
-        ]);
+        ];
+        if ($delta !== null) {
+            return (new ProviderStream())->read($http, $url, $payload, 'gemini', $delta);
+        }
+        $response = $http->post($url, $payload);
 
         if ($response->successful()) {
             $text = $response->json('candidates.0.content.parts.0.text', '');
@@ -50,18 +55,24 @@ class LlmProviderService
         return ['success' => false, 'error' => "Gemini API Error ({$response->status()}): " . $this->extractError($response)];
     }
 
-    private function callClaude(string $model, string $apiKey, string $systemContext, string $prompt): array
+    private function callClaude(string $model, string $apiKey, string $systemContext, string $prompt, ?callable $delta): array
     {
-        $response = Http::withHeaders([
+        $http = Http::withHeaders([
             'x-api-key' => $apiKey,
             'anthropic-version' => '2023-06-01',
             'content-type' => 'application/json',
-        ])->timeout(60)->post('https://api.anthropic.com/v1/messages', [
+        ])->timeout(60);
+        $url = 'https://api.anthropic.com/v1/messages';
+        $payload = [
             'model' => $model ?: 'claude-3-5-sonnet-20241022',
             'max_tokens' => 4096,
             'system' => $systemContext,
             'messages' => [['role' => 'user', 'content' => $prompt]],
-        ]);
+        ];
+        if ($delta !== null) {
+            return (new ProviderStream())->read($http, $url, $payload, 'claude', $delta);
+        }
+        $response = $http->post($url, $payload);
 
         if ($response->successful()) {
             return ['success' => true, 'text' => $response->json('content.0.text', '')];
@@ -70,19 +81,25 @@ class LlmProviderService
         return ['success' => false, 'error' => "Claude API Error ({$response->status()}): " . $this->extractError($response)];
     }
 
-    private function callMoonshot(string $model, string $apiKey, string $systemContext, string $prompt): array
+    private function callMoonshot(string $model, string $apiKey, string $systemContext, string $prompt, ?callable $delta): array
     {
-        $response = Http::withHeaders([
+        $http = Http::withHeaders([
             'Authorization' => 'Bearer ' . $apiKey,
             'Content-Type' => 'application/json',
-        ])->timeout(60)->post('https://api.moonshot.cn/v1/chat/completions', [
+        ])->timeout(60);
+        $url = 'https://api.moonshot.cn/v1/chat/completions';
+        $payload = [
             'model' => $model ?: 'moonshot-v1-8k',
             'messages' => [
                 ['role' => 'system', 'content' => $systemContext],
                 ['role' => 'user', 'content' => $prompt],
             ],
             'temperature' => 0.3,
-        ]);
+        ];
+        if ($delta !== null) {
+            return (new ProviderStream())->read($http, $url, $payload, 'openai', $delta);
+        }
+        $response = $http->post($url, $payload);
 
         if ($response->successful()) {
             return ['success' => true, 'text' => $response->json('choices.0.message.content', '')];
@@ -91,23 +108,29 @@ class LlmProviderService
         return ['success' => false, 'error' => "Kimi API Error ({$response->status()}): " . $this->extractError($response)];
     }
 
-    private function callOpenAiCompatible(string $provider, string $model, string $apiKey, string $systemContext, string $prompt): array
+    private function callOpenAiCompatible(string $provider, string $model, string $apiKey, string $systemContext, string $prompt, ?callable $delta): array
     {
         $baseUrl = $provider === 'deepseek'
             ? 'https://api.deepseek.com/v1/chat/completions'
             : 'https://api.openai.com/v1/chat/completions';
 
-        $response = Http::withHeaders([
+        $http = Http::withHeaders([
             'Authorization' => 'Bearer ' . $apiKey,
             'Content-Type' => 'application/json',
-        ])->timeout(60)->post($baseUrl, [
+        ])->timeout(60);
+        $url = $baseUrl;
+        $payload = [
             'model' => $model ?: 'gpt-4o',
             'messages' => [
                 ['role' => 'system', 'content' => $systemContext],
                 ['role' => 'user', 'content' => $prompt],
             ],
             'temperature' => 0.3,
-        ]);
+        ];
+        if ($delta !== null) {
+            return (new ProviderStream())->read($http, $url, $payload, 'openai', $delta);
+        }
+        $response = $http->post($url, $payload);
 
         if ($response->successful()) {
             return ['success' => true, 'text' => $response->json('choices.0.message.content', '')];
@@ -116,7 +139,7 @@ class LlmProviderService
         return ['success' => false, 'error' => ucfirst($provider) . " API Error ({$response->status()}): " . $this->extractError($response)];
     }
 
-    private function callOllama(string $model, string $apiKey, string $systemContext, string $prompt): array
+    private function callOllama(string $model, string $apiKey, string $systemContext, string $prompt, ?callable $delta): array
     {
         $effectiveModel = $model ?: 'kimi-k2.6';
         $messages = [
@@ -125,14 +148,20 @@ class LlmProviderService
         ];
 
         if (!empty($apiKey)) {
-            $response = Http::withHeaders([
+            $http = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $apiKey,
                 'Content-Type' => 'application/json',
-            ])->timeout(90)->post('https://ollama.com/api/chat', [
+            ])->timeout(90);
+            $url = 'https://ollama.com/api/chat';
+            $payload = [
                 'model' => $effectiveModel,
                 'messages' => $messages,
                 'stream' => false,
-            ]);
+            ];
+            if ($delta !== null) {
+                return (new ProviderStream())->read($http, $url, $payload, 'ollama', $delta);
+            }
+            $response = $http->post($url, $payload);
 
             if ($response->successful()) {
                 $text = $response->json('message.content') ?? $response->json('response') ?? $response->json('choices.0.message.content') ?? '';
@@ -167,23 +196,29 @@ class LlmProviderService
      * Base URL configurable via env SENOPATI_BASE_URL (defaults to ITS gateway).
      * DNS may fail externally; env override allows private/proxy endpoints.
      */
-    private function callSenopati(string $model, string $apiKey, string $systemContext, string $prompt): array
+    private function callSenopati(string $model, string $apiKey, string $systemContext, string $prompt, ?callable $delta): array
     {
         $effectiveModel = $model ?: 'qwen3:14b';
         $baseUrl = config('services.senopati.base_url');
         $endpoint = rtrim($baseUrl, '/') . '/llm-gateway/v1/chat/completions';
 
         try {
-            $response = Http::withHeaders([
+            $http = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $apiKey,
                 'Content-Type' => 'application/json',
-            ])->connectTimeout(10)->timeout(120)->post($endpoint, [
+            ])->connectTimeout(10)->timeout(120);
+            $url = $endpoint;
+            $payload = [
                 'model' => $effectiveModel,
                 'messages' => [
                     ['role' => 'system', 'content' => $systemContext],
                     ['role' => 'user', 'content' => $prompt],
                 ],
-            ]);
+            ];
+            if ($delta !== null) {
+                return (new ProviderStream())->read($http, $url, $payload, 'openai', $delta);
+            }
+            $response = $http->post($url, $payload);
         } catch (ConnectionException $e) {
             // DNS/connection failure is environmental (Senopati only
             // resolves inside the ITS campus network / ITS VPN). Flag it so the

@@ -1,5 +1,7 @@
 // Centralized API client. Replaces all the inline `fetch(...)` calls in the Blade file.
 
+import { streamPrompt } from '@/lib/chatStream';
+
 export interface IdeRoutes {
   tree: string;
   fileRead: string;
@@ -133,7 +135,8 @@ deleteFile: (path: string) => post(routes.fileDelete, { path }),
       targetFile: string;
       currentCode: string;
       sessionId?: number | null;
-    }) => post(routes.agentPrompt, payload),
+      maxIterations?: number;
+    }, onEvent?: (event: string, data: any) => void) => onEvent ? streamPrompt(routes.agentPrompt, payload, csrf(), onEvent) : post(routes.agentPrompt, payload),
     fetchChatSessions: (search = '') =>
       get(`${chatsEndpoint}${search ? `?search=${encodeURIComponent(search)}` : ''}`),
     createChatSession: (title?: string, provider?: string, model?: string) =>

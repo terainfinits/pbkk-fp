@@ -11,24 +11,10 @@ class AgentResponseFormatter
 {
     public function format(string $rawText, string $provider, string $model, ?string $targetFile, ?string $targetDirectory, string $prompt = ''): array
     {
-        $suggestedPath = $this->deriveTargetPath($rawText, $prompt, $targetFile, $targetDirectory);
-        [$language, $code] = $this->extractCodeBlock($rawText);
-        $files = [];
-        preg_match_all('/(?:#{1,6}\s*)?\[FILE:\s*([^\]\r\n]+)\]\s*```([\w-]*)\r?\n([\s\S]*?)```/i', $rawText, $matches, PREG_SET_ORDER);
-        foreach ($matches as $match) {
-            $files[] = ['path' => trim($match[1]), 'language' => $match[2] ?: 'plaintext', 'code' => rtrim($match[3], "\r\n")];
-        }
-        if (!$files && $code !== '') {
-            $files[] = ['path' => $suggestedPath, 'language' => $language, 'code' => $code];
-        }
-
-        $steps = [
-            ['title' => 'Analyzing Requirements', 'detail' => "Parsed prompt using {$provider} ({$model}) and evaluated target context."],
-            ['title' => 'Synthesizing Architecture', 'detail' => 'Crafted clean, optimized code logic following modern coding standards.'],
-            ['title' => 'Code Generation', 'detail' => "Generated code artifact targeted for `{$suggestedPath}`."],
-            ['title' => 'Written to Editor (Pending Review)', 'detail' => 'Code automatically written to the text editor. Review changes and click Accept or Reject in the editor.'],
-        ];
-
+        $defaultPath = $this->deriveTargetPath($rawText, $prompt, $targetFile, $targetDirectory);
+        $files = $this->files($rawText, $defaultPath);
+        $first = $files[0] ?? ['path' => $defaultPath, 'language' => 'plaintext', 'code' => ''];
+        $steps = [];
         return [
             'success' => true,
             'provider' => $provider,
@@ -36,10 +22,10 @@ class AgentResponseFormatter
             'raw' => $rawText,
             'files' => $files,
             'steps' => $steps,
-            'code' => $code,
-            'language' => $language,
-            'targetPath' => $suggestedPath,
-            'hasDiff' => !empty($code),
+            'code' => $first['code'],
+            'language' => $first['language'],
+            'targetPath' => $first['path'],
+            'hasDiff' => $files !== [],
         ];
     }
 
@@ -59,12 +45,39 @@ class AgentResponseFormatter
         return $suggestedPath;
     }
 
-    private function extractCodeBlock(string $rawText): array
+    private function files(string $raw, string $defaultPath): array
     {
-        if (preg_match('/```([a-zA-Z0-9_-]+)?\r?\n([\s\S]*?)```/', $rawText, $codeMatch)) {
-            return [$codeMatch[1] ?: 'php', trim($codeMatch[2])];
+        $files = [];
+        $firstSnippet = $path = $fence = null;
+        $named = false;
+        foreach (preg_split('/\r\n|\n|\r/', $raw) as $line) {
+            if ($fence !== null) {
+                if (! preg_match('/^ {0,3}'.preg_quote($fence[0], '/').'{'.strlen($fence).',}\s*$/', $line)) {
+                    $lines[] = $line;
+                    continue;
+                }
+                $file = ['path' => $path ?? $defaultPath, 'language' => $language, 'code' => implode("\n", $lines)];
+                if ($path !== null) {
+                    $files[$path] = $file;
+                } else {
+                    $firstSnippet ??= $file;
+                }
+                $fence = $path = null;
+                continue;
+            }
+            if (preg_match('/^ {0,3}(\x60{3,}|~{3,})(.*)$/', $line, $match)) {
+                $fence = $match[1];
+                $language = strtok(trim($match[2]), " \t") ?: 'plaintext';
+                $lines = [];
+            } elseif (preg_match('/^\s*(?:#{1,6}\s*)?\[FILE:\s*([^\]]+)\]\s*$/i', $line, $match)
+                || preg_match('/^\s*(?:#{1,6}\s+|\*\*|(?=File:)|(?=\x60))(?:File:\s*)?\x60?([\w.\/-]+\.[\w-]+)\x60?(?:\*\*)?\s*$/i', $line, $match)) {
+                $path = trim($match[1], " \t\x60");
+                $named = true;
+            } elseif (trim($line) !== '') {
+                $path = null;
+            }
         }
 
-        return ['php', ''];
+        return $named ? array_values($files) : ($firstSnippet ? [$firstSnippet] : []);
     }
 }

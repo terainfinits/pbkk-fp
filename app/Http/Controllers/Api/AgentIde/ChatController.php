@@ -3,12 +3,11 @@
 namespace App\Http\Controllers\Api\AgentIde;
 
 use App\Http\Controllers\Controller;
-use App\Models\ChatMessage;
 use App\Models\ChatSession;
 use App\Services\AgentIde\AgentContextBuilder;
 use App\Services\AgentIde\AgentResponseFormatter;
 use App\Services\AgentIde\FallbackAgentResponder;
-use App\Services\AgentIde\LlmProviderService;
+use App\Services\AgentIde\ChatAgentLoop;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -17,7 +16,7 @@ class ChatController extends Controller
 {
     public function __construct(
         private AgentContextBuilder $contextBuilder,
-        private LlmProviderService $llm,
+        private ChatAgentLoop $loop,
         private AgentResponseFormatter $formatter,
         private FallbackAgentResponder $fallback,
     ) {
@@ -44,6 +43,13 @@ class ChatController extends Controller
 
         if (empty(trim($prompt))) {
             return response()->json(['success' => false, 'error' => 'Prompt cannot be empty'], 400);
+        }
+
+        $limit = filter_var($request->input('maxIterations', 4), FILTER_VALIDATE_INT, [
+            'options' => ['min_range' => 1, 'max_range' => 12],
+        ]);
+        if ($limit === false) {
+            return response()->json(['success' => false, 'error' => 'maxIterations must be between 1 and 12.'], 422);
         }
 
         // default API key for Senopati (env config only, no hardcoded secrets)
@@ -85,11 +91,11 @@ class ChatController extends Controller
 
         $systemContext = $this->contextBuilder->build($targetDirectory, $targetFile, $currentCode);
 
-        try {
+        $run = function (?callable $emit) use ($provider, $model, $apiKey, $systemContext, $prompt, $history, $limit, $targetFile, $targetDirectory, $session) {
             $formatted = null;
 
             if (!empty($apiKey)) {
-                $response = $this->llm->dispatch($provider, $model, $apiKey, $systemContext, $prompt, $history);
+                $response = $this->loop->run($provider, $model, $apiKey, $systemContext, $prompt, $history, $limit, $emit);
 
                 if (!$response['success']) {
                     // network/DNS failures are environmental (e.g. Senopati
@@ -98,7 +104,7 @@ class ChatController extends Controller
                     // flag it in the UI. Auth/invalid-key errors keep failing
                     // loudly — we do NOT fall back for those (decision #5).
                     if (empty($response['network_error'])) {
-                        return response()->json(['success' => false, 'error' => $response['error'] ?? 'Live API call failed'], 400);
+                        return $response;
                     }
 
                     $notice = $response['error'] . ' Response came from the built-in fallback generator, not the live AI.';
@@ -109,8 +115,12 @@ class ChatController extends Controller
                 }
             } else {
                 $formatted = $this->fallback->generate($prompt, $provider, $model, $targetFile, $targetDirectory);
+                $formatted['fallbackNotice'] = 'API key belum diatur. Respons ini berasal dari template bawaan.';
             }
 
+            $formatted['stopReason'] = $response['stopReason'] ?? 'fallback';
+            $formatted['iterations'] = $response['iterations'] ?? 0;
+            $formatted['files'] ??= [['path' => $formatted['targetPath'], 'code' => $formatted['code'], 'language' => $formatted['language']]];
             // 3. Persist assistant response
             if (!empty($formatted['success'])) {
                 $session->messages()->create([
@@ -118,6 +128,9 @@ class ChatController extends Controller
                     'content' => $formatted['explanation'] ?? '',
                     'metadata' => [
                         'raw' => $formatted['raw'] ?? '',
+                        'stopReason' => $formatted['stopReason'],
+                        'iterations' => $formatted['iterations'],
+                        'fallbackNotice' => $formatted['fallbackNotice'] ?? null,
                         'files' => $formatted['files'] ?? [],
                         'code' => $formatted['code'] ?? null,
                         'language' => $formatted['language'] ?? null,
@@ -130,7 +143,32 @@ class ChatController extends Controller
             $formatted['sessionId'] = $session->id;
             $formatted['sessionTitle'] = $session->title;
 
-            return response()->json($formatted);
+            return $formatted;
+        };
+
+        if ($request->prefers(['application/json', 'text/event-stream']) === 'text/event-stream') {
+            return response()->stream(function () use ($run, $session) {
+                $emit = static function (string $event, array $data) {
+                    echo "event: {$event}\ndata: ".json_encode($data, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE)."\n\n";
+                    if (ob_get_level() > 0) {
+                        ob_flush();
+                    }
+                    flush();
+                };
+                try {
+                    $emit('session', ['sessionId' => $session->id]);
+                    $result = $run($emit);
+                    $emit($result['success'] ? 'done' : 'error', $result);
+                } catch (\Throwable $e) {
+                    report($e);
+                    $emit('error', ['error' => 'Chat stream interrupted.']);
+                }
+            }, 200, ['Content-Type' => 'text/event-stream', 'Cache-Control' => 'no-cache, no-transform', 'X-Accel-Buffering' => 'no']);
+        }
+
+        try {
+            $formatted = $run(null);
+            return response()->json($formatted, $formatted['success'] ? 200 : 400);
         } catch (\Throwable $e) {
             Log::error('Agent prompt error: ' . $e->getMessage());
 

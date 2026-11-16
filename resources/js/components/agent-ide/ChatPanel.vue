@@ -46,6 +46,7 @@ const provider = ref('senopati');
 const model = ref('qwen3:14b');
 const prompt = ref('');
 const isThinking = ref(false);
+const maxIterations = ref(4);
 
 const models = computed(() => providerModels[provider.value] || []);
 
@@ -131,6 +132,8 @@ async function selectSession(id: number | null) {
         role: m.role,
         content: m.content || '',
         raw: m.metadata?.raw,
+        stopReason: m.metadata?.stopReason,
+        fallbackNotice: m.metadata?.fallbackNotice,
         files: m.metadata?.files || [],
         code: m.metadata?.code,
         language: m.metadata?.language,
@@ -187,6 +190,8 @@ interface ChatMessage {
   targetPath?: string;
   steps?: { title: string; detail: string }[];
   loading?: boolean;
+  progress?: string;
+  stopReason?: string;
   error?: string;
   fallbackNotice?: string;
 }
@@ -239,12 +244,20 @@ async function submit() {
       targetFile: activeTab?.path || '',
       currentCode: activeTab?.content || '',
       sessionId: currentSessionId.value,
+      maxIterations: maxIterations.value,
+    }, (event, data) => {
+      if (!messages.value.includes(botMsg)) return;
+      if (event === 'session') currentSessionId.value = data.sessionId;
+      if (event === 'iteration') botMsg.progress = 'Iterasi ' + data.current + ' / ' + data.limit;
+      if (event === 'delta') botMsg.raw = (botMsg.raw || '') + data.text;
+      if (event === 'snapshot') botMsg.raw = data.text;
     });
 
     if (!messages.value.includes(botMsg)) return;
     botMsg.loading = false;
 
-      if (data.success) {
+    if (data.success) {
+      botMsg.stopReason = data.stopReason;
       botMsg.code = data.code;
       botMsg.language = data.language;
       botMsg.targetPath = data.targetPath;
@@ -254,9 +267,7 @@ async function submit() {
       botMsg.raw = data.raw;
       botMsg.files = data.files || [];
       state.proposals.value = data.files?.length ? data.files : data.code ? [{path: data.targetPath, code: data.code, language: data.language || 'plaintext'}] : [];
-      if (data.code && data.targetPath) {
-        state.proposal.value = state.proposals.value[0] || null;
-      }
+      state.proposal.value = state.proposals.value[0] || null;
       state.lastGeneratedCode.value = data.code;
       state.lastGeneratedTarget.value = data.targetPath;
 
@@ -265,7 +276,7 @@ async function submit() {
         loadSessions(false);
       }
 
-      state.pushToast('Agentic Chatbot response completed.');
+      if (data.stopReason !== 'iteration_limit') state.pushToast('Respons chat tersedia.');
     } else {
       botMsg.error = (data.error || 'Failed to process prompt.').slice(0, 300);
     }
@@ -574,10 +585,10 @@ onMounted(() => {
 
               <div v-if="msg.loading" class="flex items-center gap-2 text-slate-400 text-xs py-2">
                 <i class="fa-solid fa-circle-notch fa-spin text-indigo-400"></i>
-                <span>Analyzing prompt context & generating response...</span>
+                <span>{{ msg.progress || 'Menunggu respons...' }}</span>
               </div>
 
-              <div v-else-if="msg.error" class="p-3 rounded bg-red-950/50 border border-red-500/30 text-red-300 text-xs flex items-start gap-2">
+              <div v-if="msg.error" class="p-3 rounded bg-red-950/50 border border-red-500/30 text-red-300 text-xs flex items-start gap-2">
                 <i class="fa-solid fa-circle-exclamation text-red-400 mt-0.5"></i>
                 <div>
                   <div class="font-bold">Chatbot Error</div>
@@ -585,7 +596,9 @@ onMounted(() => {
                 </div>
               </div>
 
-              <template v-else>
+              <div v-if="msg.loading && msg.raw" class="markdown-body [&_pre]:overflow-auto" v-html="renderMarkdown(msg.raw)"></div>
+              <template v-if="!msg.loading && !msg.error">
+                <p v-if="msg.stopReason === 'iteration_limit'" class="text-amber-300">Batas iterasi tercapai. Tugas mungkin belum selesai.</p>
                 <!-- Built-in fallback notice (live AI unreachable) -->
                 <div v-if="msg.fallbackNotice" class="p-2 rounded bg-amber-950/50 border border-amber-500/30 text-amber-300 text-[11px] flex items-start gap-2">
                   <i class="fa-solid fa-plug-circle-exclamation mt-0.5"></i>
@@ -659,7 +672,7 @@ onMounted(() => {
         @keydown.enter.exact.prevent="submit"
       ></textarea>
       <div class="flex items-center justify-between">
-        <span class="text-[10px] text-slate-500 font-mono">Shift+Enter for new line</span>
+        <label class="text-xs text-slate-400">Maks. iterasi <input v-model.number="maxIterations" type="number" min="1" max="12" :disabled="isThinking" class="w-12 rounded bg-slate-900 px-1"></label>
         <button
           :disabled="isThinking"
           class="px-4 py-2 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 disabled:opacity-50 text-white font-semibold text-xs rounded-lg shadow-lg shadow-indigo-500/20 flex items-center gap-1.5 transition"
