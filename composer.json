@@ -50,11 +50,19 @@
             "@php artisan key:generate",
             "@php artisan migrate --force",
             "npm install",
-            "npm run build"
+            "npm run build",
+            "docker build -t sandbox-runner:latest ."
+        ],
+        "run": [
+            "npm run build",
+            "npm --prefix terminal-gateway run start"
         ],
         "dev": [
             "Composer\\Config::disableProcessTimeout",
-            "npx concurrently -c \"#93c5fd,#c4b5fd,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1 --timeout=0\" \"npm run dev\" --names='server,queue,vite'"
+            "npx concurrently -c \"#93c5fd,#c4b5fd,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1 --timeout=0\" \"npm run dev\" \"npm --prefix terminal-gateway run dev\" --names='server,queue,vite,terminal-gateway'"
+        ],
+        "docker:build": [
+            "docker build -t sandbox-runner:latest ."
         ],
         "lint": [
             "pint --parallel"
