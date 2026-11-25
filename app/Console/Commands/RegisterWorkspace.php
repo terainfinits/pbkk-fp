@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
 
 class RegisterWorkspace extends Command
 {
-    protected $signature = 'harness:register {path} {email} {image}';
+    protected $signature = 'harness:register {path} {email} {image} {--check=* : Additional required check as name=image}';
     protected $description = 'Register a clean local repository with its offline test image';
 
     public function handle(Repository $repo): int
@@ -29,9 +29,18 @@ class RegisterWorkspace extends Command
             $this->error('Pilih root repository Git.');
             return 1;
         }
+        $checks = [];
+        foreach ($this->option('check') as $entry) {
+            if (!preg_match('~^([a-z][a-z0-9_-]*)=([a-z0-9][a-z0-9._/:@-]+)$~D', $entry, $m)
+                || in_array($m[1], ['manual', 'test'], true) || isset($checks[$m[1]])) {
+                $this->error('Gunakan --check=nama=image dengan nama unik.');
+                return 1;
+            }
+            $checks[$m[1]] = $m[2];
+        }
         $repo->cleanHead($path);
         DB::table('workspaces')->updateOrInsert(['path' => $path, 'user_id' => $owner],
-            ['image' => $image, 'name' => basename($path)]);
+            ['image' => $image, 'extra_checks' => json_encode($checks), 'name' => basename($path)]);
         $this->info('Workspace terdaftar.');
         return 0;
     }

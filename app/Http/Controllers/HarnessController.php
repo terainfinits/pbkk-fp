@@ -58,6 +58,9 @@ class HarnessController extends Controller
     {
         $row = $this->owned($request, $run);
         return response()->json(['id' => $run, 'status' => $row->status, 'task' => $row->task, 'patch' => $row->patch,
+            'plan' => json_decode($row->plan ?? 'null'), 'checks' => json_decode($row->checks ?? '{}'),
+            'evidence' => json_decode($row->evidence ?? 'null'), 'revision' => $row->revision,
+            'question' => $row->question, 'phase' => $row->phase, 'stop_reason' => $row->stop_reason,
             'changes' => json_decode($row->changes ?? '[]'),
             'events' => DB::table('run_events')->where('agent_run_id', $run)->where('id', '>', $request->integer('after'))
                 ->orderBy('id')->get(['id', 'kind', 'message', 'exit_code'])]);
@@ -69,16 +72,28 @@ class HarnessController extends Controller
             $row = $this->owned($request, $run);
             $query = DB::table('agent_runs')->where('id', $run);
             if ($action === 'cancel') {
-                if ($query->where('status', 'queued')->update(['status' => 'cancelled', 'active' => null])) {
+                if ($query->where('status', 'queued')->update(['status' => 'cancelled', 'stop_reason' => 'cancelled', 'active' => null])) {
                     return response()->noContent();
                 }
                 abort_unless(DB::table('agent_runs')->where('id', $run)->where('status', 'running')->update(['status' => 'cancelling']), 409);
                 return response()->noContent();
             }
-            $allowed = $action === 'apply' ? ['review'] : ['review', 'conflict'];
+            if ($action === 'answer') {
+                $answer = $request->validate(['answer' => 'required|string|max:4000'])['answer'];
+                abort_unless($query->where('status', 'awaiting_input')->update([
+                    'clarifications' => $row->clarifications."\n".$row->question."\n".$answer,
+                    'question' => null, 'stop_reason' => null, 'status' => 'queued', 'updated_at' => now(),
+                ]), 409);
+                RunCodingAgent::dispatch($run)->onQueue('harness')->afterCommit();
+                return response()->noContent();
+            }
+            $allowed = $action === 'apply' ? ['verified'] : ['verified', 'review', 'conflict', 'awaiting_input'];
             abort_unless($query->whereIn('status', $allowed)->update(['status' => 'deciding']), 409);
             if ($action === 'apply') {
                 try {
+                    if ($row->revision !== hash('sha256', (string) $row->patch)) {
+                        throw new \RuntimeException('Patch berubah.');
+                    }
                     if ($repo->cleanHead($row->path) !== $row->base) {
                         throw new \RuntimeException('HEAD berubah.');
                     }

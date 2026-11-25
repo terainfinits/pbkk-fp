@@ -10,5 +10,5 @@ Route::middleware('auth')->prefix('ide/api/harness')->controller(HarnessControll
     Route::get('/workspaces', 'index');
     Route::post('/workspaces/{workspace}/runs', 'start')->whereNumber('workspace');
     Route::get('/runs/{run}', 'show')->whereNumber('run');
-    Route::post('/runs/{run}/{action}', 'action')->whereNumber('run')->whereIn('action', ['cancel', 'apply', 'reject']);
+    Route::post('/runs/{run}/{action}', 'action')->whereNumber('run')->whereIn('action', ['cancel', 'apply', 'reject', 'answer']);
 });

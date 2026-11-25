@@ -8,7 +8,11 @@ import DiffViewer from './DiffViewer.vue';
 type Workspace = { id: number; name: string; latest: number | null };
 type RunEvent = { id: number; kind: string; message: string; exit_code: number | null };
 type Change = { path: string; before: string | null; after: string | null };
-type Run = { id: number; status: string; task: string; patch: string | null; events: RunEvent[]; changes: Change[] };
+type Plan = { goal: string; files: string[]; steps: string[]; criteria: { description: string; check: string }[] };
+type Run = { id: number; status: string; phase: string; question: string | null; stop_reason: string | null;
+  plan: Plan | null; evidence: { summary: string; evidence: string[] } | null;
+  checks: Record<string, {revision: string; exit_code: number}>; task: string; patch: string | null; events: RunEvent[]; changes: Change[] };
+const answer = ref('');
 const inspecting = ref<Change>();
 
 const workspaces = ref<Workspace[]>([]);
@@ -19,7 +23,7 @@ const error = ref('');
 const busy = ref(false);
 let timer: ReturnType<typeof setTimeout>;
 let generation = 0;
-const active = computed(() => ['queued', 'running', 'cancelling', 'review', 'conflict'].includes(run.value?.status ?? ''));
+const active = computed(() => ['queued', 'running', 'cancelling', 'review', 'verified', 'awaiting_input', 'conflict'].includes(run.value?.status ?? ''));
 async function request(path: string, data?: object) {
   const res = await fetch('/ide/api/harness/' + path, {
     method: data ? 'POST' : 'GET',
@@ -72,7 +76,10 @@ async function act(action: string) {
       run.value = undefined;
       const space = workspaces.value.find(w => w.id === selected.value);
       if (space) space.latest = id ?? null;
-    } else await request('runs/' + id + '/' + action, {});
+    } else {
+      await request('runs/' + id + '/' + action, action === 'answer' ? { answer: answer.value } : {});
+      answer.value = '';
+    }
     if (id) await load(id, version);
   } catch (e) {
     if (id) await load(id, version);
@@ -94,7 +101,22 @@ async function act(action: string) {
     <p v-if="error" role="alert">{{ error }}</p>
     <section v-if="run" class="space-y-2">
       <h3>{{ run.task }}</h3>
-      <p>Status: {{ run.status }}</p>
+      <p>Status: {{ run.status }} · {{ run.phase }} {{ run.stop_reason }}</p>
+      <section v-if="run.plan">
+        <h4>{{ run.plan.goal }}</h4>
+        <p>{{ run.plan.files.join(', ') }}</p>
+        <ol><li v-for="step in run.plan.steps" :key="step">{{ step }}</li></ol>
+        <ul><li v-for="(criterion, i) in run.plan.criteria" :key="i">
+          {{ criterion.description }} · {{ criterion.check === 'manual' ? 'Perlu pemeriksaan manusia' : criterion.check }}
+          {{ run.evidence?.evidence[i] }}
+        </li></ul>
+      </section>
+      <p v-if="run.evidence">{{ run.evidence.summary }}</p>
+      <p v-for="(check, name) in run.checks" :key="name">{{ name }} · exit {{ check.exit_code }} · {{ check.revision.slice(0, 12) }}</p>
+      <label v-if="run.status === 'awaiting_input'">{{ run.question }}
+        <textarea v-model="answer" class="block w-full bg-slate-800" />
+        <button :disabled="busy || !answer.trim()" @click="act('answer')">Lanjutkan</button>
+      </label>
       <details v-for="event in run.events" :key="event.id" :open="event.kind !== 'tool'">
         <summary>{{ event.kind }} {{ event.exit_code == null ? '' : '(exit ' + event.exit_code + ')' }}</summary>
         <pre class="whitespace-pre-wrap">{{ event.message }}</pre>
@@ -104,8 +126,8 @@ async function act(action: string) {
       <button v-for="change in run.changes" :key="change.path" class="block underline" :disabled="change.before === null" @click="inspecting = change">{{ change.path }}</button>
       <DiffViewer v-if="inspecting" visible review-only :target-path="inspecting.path" :original-code="inspecting.before ?? ''" :modified-code="inspecting.after ?? ''" @close="inspecting = undefined" />
       <button v-if="['queued','running'].includes(run.status)" :disabled="busy" @click="act('cancel')">Batalkan</button>
-      <button v-if="run.status === 'review'" :disabled="busy" @click="act('apply')">Terapkan</button>
-      <button v-if="['review','conflict'].includes(run.status)" :disabled="busy" @click="act('reject')">Tolak</button>
+      <button v-if="run.status === 'verified'" :disabled="busy" @click="act('apply')">Terapkan</button>
+      <button v-if="['verified','review','conflict','awaiting_input'].includes(run.status)" :disabled="busy" @click="act('reject')">Tolak</button>
     </section>
   </aside>
 </template>

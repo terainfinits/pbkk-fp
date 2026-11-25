@@ -14,6 +14,14 @@ php artisan queue:work database --queue=harness --tries=1 --timeout=620
 php artisan schedule:work
 ```
 
+## Verifikasi tugas
+
+Worker memulai fase planning dengan membaca repository. Rencana memuat tujuan, file, langkah, dan kriteria penerimaan. Jika agent meminta klarifikasi sebelum coding, jawab di panel untuk melanjutkan dari commit awal. Sebelum edit pertama, worker mengambil hasil tes baseline. Setiap patch menghapus hasil verifikasi dari revisi sebelumnya.
+
+Image utama menjalankan pemeriksaan bernama `test`. Untuk pemeriksaan tambahan, daftarkan workspace dengan opsi berulang seperti `--check=lint=php-lint:local --check=build=frontend-build:local`. Setiap image menjalankan entrypoint sendiri terhadap snapshot yang sama. Semua image harus tersedia lokal.
+
+Panel menampilkan bukti per kriteria dan hasil pemeriksaan per revisi. Apply memerlukan status `verified`. Jika run berhenti karena batas langkah, tes gagal, atau kriteria manual, diff tetap tersedia untuk diperiksa. Run lama dengan status `review` dapat ditolak dan dijalankan kembali untuk memperoleh bukti verifikasi.
+
 ## Demo dua file
 
 Build image lokal dengan `docker build -t harness-php:local docker/harness`. Image contoh sudah memiliki PHP dan menjalankan `php tests.php` dari salinan snapshot di /tmp. Proyek dengan PHPUnit/Pest perlu image sendiri yang menyertakan dependency terkunci dan entrypoint tes. Runner memakai image lokal dengan jaringan dinonaktifkan.

@@ -34,6 +34,31 @@ class Tools
         return substr(implode('', $lines), 0, 12000);
     }
 
+    public function edit(string $dir, string $path, string $old, string $new): string
+    {
+        // Generate a git patch against the indexed text so path and staging checks are shared.
+        if (!preg_match('~^[a-zA-Z0-9._/-]+$~D', $path) || !in_array($path, $this->files($dir), true)
+            || !str_starts_with($this->repo->git($dir, ['ls-files', '--stage', '--', $path]), '100')) {
+            throw new RuntimeException('Choose a tracked regular text file.');
+        }
+        $before = $this->repo->git($dir, ['show', ':'.$path]);
+        $old = str_replace("\r\n", "\n", $old);
+        $new = str_replace("\r\n", "\n", $new);
+        if (strlen($before) > 40000 || str_contains($before, "\0") || !str_ends_with($before, "\n")
+            || $old === '' || $old === $new || substr_count($before, $old) !== 1) {
+            throw new RuntimeException('Read the file and supply one unique exact old substring, or use patch.');
+        }
+        $after = str_replace($old, $new, $before);
+        if (!str_ends_with($after, "\n")) {
+            throw new RuntimeException('Preserve the final newline or use patch.');
+        }
+        $removed = explode("\n", substr($before, 0, -1));
+        $added = explode("\n", substr($after, 0, -1));
+        $diff = "--- a/$path\n+++ b/$path\n@@ -1,".count($removed).' +1,'.count($added)." @@\n";
+        $this->repo->applyToolPatch($dir, $diff.'-'.implode("\n-", $removed)."\n+".implode("\n+", $added)."\n");
+        return 'Edit applied.';
+    }
+
     public function search(string $dir, string $text): string
     {
         if ($text === '' || strlen($text) > 256 || str_contains($text, "\n")) {

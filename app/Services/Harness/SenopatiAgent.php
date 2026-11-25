@@ -26,6 +26,8 @@ class SenopatiAgent
                     'model' => config('chat_ai.senopati_model'),
                     'messages' => $messages,
                     'stream' => false,
+                    'temperature' => 0,
+                    'response_format' => ['type' => 'json_object'],
                 ]);
         } catch (\Illuminate\Http\Client\ConnectionException) {
             throw new RuntimeException('Senopati tidak terhubung. Periksa endpoint dan akses jaringan ITS/VPN.');

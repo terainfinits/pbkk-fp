@@ -10,8 +10,7 @@ use Illuminate\Support\Facades\File;
 
 it('asks Senopati to repair a real repository and checks it in Docker before approval', function () {
     $settings = Dotenv\Dotenv::createArrayBacked(base_path())->load();
-    $endpoint = 'https://senopati.its.ac.id/llm-gateway/v1/chat/completions';
-    expect($settings['SENOPATI_ENDPOINT'] ?? $endpoint)->toBe($endpoint);
+    $endpoint = $settings['SENOPATI_ENDPOINT'] ?? config('services.senopati.endpoint');
     config(['services.senopati.endpoint' => $endpoint, 'services.senopati.api_key' => $settings['SENOPATI_API_KEY'] ?? '',
         'chat_ai.senopati_model' => $settings['SENOPATI_MODEL'] ?? 'qwen3:14b', 'queue.default' => 'database',
         'app.key' => 'base64:'.base64_encode(random_bytes(32))]);
@@ -40,7 +39,7 @@ it('asks Senopati to repair a real repository and checks it in Docker before app
         $this->artisan('queue:work', ['connection'=>'database','--queue'=>'harness','--once'=>true,'--tries'=>1])->assertSuccessful();
         $run = $this->getJson("$url/runs/$id")->assertOk()->json();
         fwrite(STDERR, json_encode(array_map(fn ($e) => [$e['kind'], $e['kind'] === 'test' ? $e['exit_code'] : $e['message']], $run['events'])).PHP_EOL);
-        expect($run['status'])->toBe('review');
+        expect($run['status'])->toBe('verified');
         expect(array_column($run['changes'], 'path'))->toEqualCanonicalizing(['sum.php','tests.php']);
         $codes = collect($run['events'])->where('kind','test')->pluck('exit_code');
         expect($codes->first())->toBe(1)->and($codes->last())->toBe(0);
