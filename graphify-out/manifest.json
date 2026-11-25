@@ -761,12 +761,6 @@
     "ast_hash": "f1e96d19a70832c9409b234683734373",
     "semantic_hash": ""
   },
-  "folder-generated/flappy_bird.py": {
-    "mtime": 1794624237.1285677,
-    "seen": 1794642235.8519266,
-    "ast_hash": "2b47b605c0cd3d8a803361626f6eb640",
-    "semantic_hash": ""
-  },
   "package-lock.json": {
     "mtime": 1794623083.465417,
     "seen": 1794642235.852097,
