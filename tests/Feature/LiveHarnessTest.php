@@ -1,4 +1,7 @@
 <?php
+// Fitur: Harness tugas coding
+// connect with ../../app/Console/Commands/RegisterWorkspace.php, ../../app/Models/User.php, ../../app/Services/Harness/Repository.php
+// connect with ../../config/services.php, ../../database/migrations/2026_11_14_000000_create_harness_tables.php, ../../routes/harness.php
 
 use App\Models\User;
 use App\Services\Harness\Repository;

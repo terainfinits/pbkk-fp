@@ -1,4 +1,7 @@
 <?php
+// Fitur: Halaman IDE dan navigasi
+// connect with ../app/Http/Middleware/HandleInertiaRequests.php, ../routes/api.php, ../routes/console.php
+// connect with ../routes/web.php
 
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;

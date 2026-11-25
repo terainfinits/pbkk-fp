@@ -1,4 +1,6 @@
 <?php
+// Fitur: API chat bertoken dan log penggunaan
+// connect with ../../app/Models/AiChatLog.php, ../../tests/Feature/ChatAiTest.php, ./0001_01_01_000000_create_users_table.php
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;

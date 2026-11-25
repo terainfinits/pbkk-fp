@@ -1,3 +1,7 @@
+<!-- Fitur: Editor teks dan peninjauan diff
+connect with ../../composables/useIdeApi.ts, ../../composables/useIdeState.ts, ../../pages/AgentIdeApp.vue
+connect with ./ChatPanel.vue, ./DiffViewer.vue, ./HeaderNav.vue
+connect with ./SidebarExplorer.vue, ./TerminalDrawer.vue -->
 <script setup lang="ts">
 import { computed, inject, nextTick, onMounted, onBeforeUnmount, ref, shallowRef, watch } from 'vue';
 // Import monaco-editor lazily only in browser to avoid SSR "define is not defined" error

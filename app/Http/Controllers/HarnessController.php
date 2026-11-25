@@ -1,4 +1,7 @@
 <?php
+// Fitur: Harness tugas coding
+// connect with ../../../database/migrations/2026_11_14_000000_create_harness_tables.php, ../../../routes/harness.php, ../../Jobs/RunCodingAgent.php
+// connect with ../../Services/Harness/Repository.php, ./Controller.php
 
 namespace App\Http\Controllers;
 

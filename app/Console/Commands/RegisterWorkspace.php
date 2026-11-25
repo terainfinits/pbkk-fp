@@ -1,4 +1,8 @@
 <?php
+// Fitur: Harness tugas coding
+// connect with ../../../database/migrations/0001_01_01_000000_create_users_table.php, ../../../database/migrations/2026_11_14_000000_create_harness_tables.php, ../../../docs/HARNESS.md
+// connect with ../../../resources/js/components/agent-ide/HarnessPanel.vue, ../../../tests/Feature/HarnessTest.php, ../../../tests/Feature/LiveHarnessTest.php
+// connect with ../../Services/Harness/Repository.php
 
 namespace App\Console\Commands;
 

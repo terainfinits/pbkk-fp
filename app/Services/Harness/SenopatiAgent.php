@@ -1,4 +1,6 @@
 <?php
+// Fitur: Harness tugas coding
+// connect with ../../../config/chat_ai.php, ../../../config/services.php, ../../Jobs/RunCodingAgent.php
 
 namespace App\Services\Harness;
 

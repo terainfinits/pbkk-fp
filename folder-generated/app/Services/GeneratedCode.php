@@ -1,3 +1,5 @@
+# Fitur: Contoh keluaran workspace
+# Koneksi lokal: berdiri sendiri; tidak ditemukan rujukan antarfile.
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns

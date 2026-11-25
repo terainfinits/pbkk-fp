@@ -1,4 +1,10 @@
 <?php
+// Fitur: Login, registrasi dan akses pengguna
+// connect with ../../config/auth.php, ../../database/factories/UserFactory.php, ../../database/migrations/0001_01_01_000000_create_users_table.php
+// connect with ../../database/migrations/2026_11_13_000001_create_personal_access_tokens_table.php, ../../database/seeders/DatabaseSeeder.php, ../../folder-generated/app/Http/Controllers/UserController.php
+// connect with ../../tests/Feature/AgentIdeKernelTest.php, ../../tests/Feature/AuthTest.php, ../../tests/Feature/ChatAiTest.php
+// connect with ../../tests/Feature/ChatStorageTest.php, ../../tests/Feature/HarnessTest.php, ../../tests/Feature/IdePromptTest.php
+// connect with ../../tests/Feature/LiveHarnessTest.php, ../Http/Controllers/AuthController.php, ../Services/AgentIde/FallbackAgentResponder.php
 
 namespace App\Models;
 

@@ -1,4 +1,6 @@
 <?php
+// Fitur: Harness tugas coding
+// connect with ../app/Services/Harness/Repository.php, ../bootstrap/app.php, ../database/migrations/2026_11_14_000000_create_harness_tables.php
 
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;

@@ -1,3 +1,6 @@
+<!-- Fitur: Panel chat dan pengaturan model
+connect with ../../composables/useIdeApi.ts, ../../composables/useIdeState.ts, ../../pages/AgentIdeApp.vue
+connect with ./EditorPane.vue, ./SidebarExplorer.vue, ./TerminalDrawer.vue -->
 <script setup lang="ts">
 import { inject, onMounted, ref, reactive, computed } from 'vue';
 import { marked } from 'marked';

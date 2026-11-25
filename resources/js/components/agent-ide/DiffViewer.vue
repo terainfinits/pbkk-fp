@@ -1,3 +1,5 @@
+<!-- Fitur: Editor teks dan peninjauan diff
+connect with ./EditorPane.vue, ./HarnessPanel.vue -->
 <script setup lang="ts">
 import { ref, watch, nextTick, shallowRef, onMounted} from 'vue';
 // Import monaco-editor lazily only in browser to avoid SSR "define is not defined" error

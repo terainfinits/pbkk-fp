@@ -1,3 +1,5 @@
+# Fitur: Contoh keluaran workspace
+# Koneksi lokal: berdiri sendiri; tidak ditemukan rujukan antarfile.
 import pandas as pd
 
 def load_data(file_path):

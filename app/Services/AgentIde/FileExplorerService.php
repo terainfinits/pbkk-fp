@@ -1,4 +1,6 @@
 <?php
+// Fitur: Explorer, pembuatan dan unggah file
+// connect with ../../Http/Controllers/Api/AgentIde/FileController.php, ../../Http/Controllers/Api/AgentIde/KernelController.php, ./TerminalService.php
 
 namespace App\Services\AgentIde;
 

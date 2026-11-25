@@ -1,3 +1,5 @@
+<!-- Fitur: Halaman Vue tanpa rute terdaftar
+connect with ../app.ts -->
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
 </script>

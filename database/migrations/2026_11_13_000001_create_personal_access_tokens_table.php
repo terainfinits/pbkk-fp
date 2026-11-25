@@ -1,4 +1,6 @@
 <?php
+// Fitur: API chat bertoken dan log penggunaan
+// connect with ../../app/Models/User.php
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;

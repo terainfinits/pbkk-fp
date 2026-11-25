@@ -1,3 +1,7 @@
+// Fitur: Halaman IDE dan navigasi
+// connect with ../../../routes/web.php, ../components/agent-ide/ChatPanel.vue, ../components/agent-ide/CreateModal.vue
+// connect with ../components/agent-ide/EditorPane.vue, ../components/agent-ide/FileDropZone.vue, ../components/agent-ide/HeaderNav.vue
+// connect with ../components/agent-ide/SidebarExplorer.vue, ../components/agent-ide/TerminalDrawer.vue, ../pages/AgentIdeApp.vue
 // Centralized API client. Replaces all the inline `fetch(...)` calls in the Blade file.
 
 export interface IdeRoutes {

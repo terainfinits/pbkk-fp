@@ -1,3 +1,5 @@
+# Fitur: Contoh keluaran workspace
+# Koneksi lokal: berdiri sendiri; tidak ditemukan rujukan antarfile.
 def generate_primes(limit):
     """Generate a list of prime numbers up to the given limit."""
     def is_prime(n):

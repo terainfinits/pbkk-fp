@@ -1,4 +1,6 @@
 <?php
+// Fitur: API chat bertoken dan log penggunaan
+// connect with ../../app/Models/User.php, ../../database/migrations/2026_11_13_000002_create_ai_chat_logs_table.php, ../../routes/api.php
 
 use App\Models\User;
 use Illuminate\Http\Client\ConnectionException;

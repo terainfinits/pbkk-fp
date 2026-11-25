@@ -1,3 +1,7 @@
+<!-- Fitur: Explorer, pembuatan dan unggah file
+connect with ../../composables/useIdeApi.ts, ../../composables/useIdeState.ts, ../../pages/AgentIdeApp.vue
+connect with ./ChatPanel.vue, ./CreateModal.vue, ./EditorPane.vue
+connect with ./FileDropZone.vue, ./TreeNode.vue -->
 <script setup lang="ts">
 import { inject, onMounted, onBeforeUnmount, ref } from 'vue';
 import TreeNode from './TreeNode.vue';

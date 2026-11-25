@@ -1,3 +1,5 @@
+<!-- Fitur: Panel chat dan pengaturan model
+connect with ../../composables/useIdeState.ts, ../../pages/AgentIdeApp.vue -->
 <script setup lang="ts">
 import { inject, reactive, ref, watch } from 'vue';
 import type { useIdeState } from '@/composables/useIdeState';

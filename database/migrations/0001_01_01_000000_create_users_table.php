@@ -1,4 +1,7 @@
 <?php
+// Fitur: Login, registrasi dan akses pengguna
+// connect with ../../app/Console/Commands/RegisterWorkspace.php, ../../app/Models/User.php, ./2026_10_19_000000_add_user_id_to_chat_sessions_table.php
+// connect with ./2026_11_13_000002_create_ai_chat_logs_table.php, ./2026_11_14_000000_create_harness_tables.php
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;

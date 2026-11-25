@@ -1,4 +1,6 @@
 <?php
+// Fitur: Login, registrasi dan akses pengguna
+// connect with ../../app/Models/User.php
 
 namespace Database\Seeders;
 

@@ -1,3 +1,8 @@
+// Fitur: Halaman IDE dan navigasi
+// connect with ../components/agent-ide/ChatPanel.vue, ../components/agent-ide/CreateModal.vue, ../components/agent-ide/EditorPane.vue
+// connect with ../components/agent-ide/FileDropZone.vue, ../components/agent-ide/HeaderNav.vue, ../components/agent-ide/SettingsModal.vue
+// connect with ../components/agent-ide/SidebarExplorer.vue, ../components/agent-ide/TerminalDrawer.vue, ../components/agent-ide/ToastStack.vue
+// connect with ../pages/AgentIdeApp.vue
 import { reactive, ref } from 'vue';
 
 export interface OpenTab {

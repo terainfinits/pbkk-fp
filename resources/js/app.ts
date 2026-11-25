@@ -1,3 +1,7 @@
+// Fitur: Halaman IDE dan navigasi
+// connect with ../views/app.blade.php, ../views/components/layout.blade.php, ./pages/AgentIdeApp.vue
+// connect with ./pages/Auth/Login.vue, ./pages/Auth/Register.vue, ./pages/Calculator.vue
+// connect with ./pages/Welcome.vue
 import { createInertiaApp } from '@inertiajs/vue3';
 import { createApp, h, type DefineComponent } from 'vue';
 

@@ -30,9 +30,9 @@
     "semantic_hash": "9fa3fc2f365112ab84efb7e7f496662f"
   },
   "app/Http/Controllers/Api/AgentIde/ChatController.php": {
-    "mtime": 1794615237.910307,
-    "seen": 1794615280.6896546,
-    "ast_hash": "d0ad9e2c72f9b023b6ed6d04e7e009f9",
+    "mtime": 1794616525.863157,
+    "seen": 1794616567.2092214,
+    "ast_hash": "9cef84521b4d43c84b8691ff81682c15",
     "semantic_hash": ""
   },
   "app/Http/Controllers/Api/AgentIde/ChatSessionController.php": {
@@ -132,10 +132,10 @@
     "semantic_hash": "857952f062760fef667ca57659cc27fc"
   },
   "app/Services/AgentIde/LlmProviderService.php": {
-    "mtime": 1794180454.207039,
-    "seen": 1794183001.9290354,
-    "ast_hash": "d985b6404e0a3572fd180f7f1c7b373a",
-    "semantic_hash": "d985b6404e0a3572fd180f7f1c7b373a"
+    "mtime": 1794616527.063598,
+    "seen": 1794616567.209294,
+    "ast_hash": "1f254f26db74be56da3a323da6e908aa",
+    "semantic_hash": ""
   },
   "app/Services/AgentIde/TerminalService.php": {
     "mtime": 1793519596.7410061,
@@ -408,10 +408,10 @@
     "semantic_hash": "4cb2d5198a9e21b2ac7fe197a94d3964"
   },
   "resources/js/composables/useIdeApi.ts": {
-    "mtime": 1794180454.2235315,
-    "seen": 1794183001.9291363,
-    "ast_hash": "f168ae45ecad054edd472b9db2a165e7",
-    "semantic_hash": "f168ae45ecad054edd472b9db2a165e7"
+    "mtime": 1794616528.2255268,
+    "seen": 1794616567.2094734,
+    "ast_hash": "971d99abdfb82985e2665969a01a1f21",
+    "semantic_hash": ""
   },
   "resources/js/composables/useIdeState.ts": {
     "mtime": 1794615239.1323557,
@@ -744,15 +744,21 @@
     "semantic_hash": ""
   },
   "folder-generated/pipeline_data_analyst.py": {
-    "mtime": 1794614824.4929278,
-    "seen": 1794615280.6898508,
-    "ast_hash": "4100e536a015d13d08eb01b9dea11534",
+    "mtime": 1794616707.1862507,
+    "seen": 1794617302.7506359,
+    "ast_hash": "88dbc4f272cdef7db3aff49c8724a73e",
     "semantic_hash": ""
   },
   "tests/Unit/AgentFilesTest.php": {
     "mtime": 1794615268.0053735,
     "seen": 1794615280.6899924,
     "ast_hash": "c5556091d9b3c393763a73fb21a7b45d",
+    "semantic_hash": ""
+  },
+  "tests/Feature/IdePromptTest.php": {
+    "mtime": 1794616529.392056,
+    "seen": 1794616567.2095535,
+    "ast_hash": "a6aa4aaaa245b9632849db0767d6dcc7",
     "semantic_hash": ""
   },
   ".opencode/package-lock.json": {

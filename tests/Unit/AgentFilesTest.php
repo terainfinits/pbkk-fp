@@ -1,4 +1,6 @@
 <?php
+// Fitur: Panel chat dan pengaturan model
+// connect with ../../app/Services/AgentIde/AgentResponseFormatter.php
 
 use App\Services\AgentIde\AgentResponseFormatter;
 

@@ -1,4 +1,7 @@
 <?php
+// Fitur: Panel chat dan pengaturan model
+// connect with ../app/Http/Controllers/Api/AgentIde/ChatController.php, ../app/Services/AgentIde/LlmProviderService.php, ../app/Services/ChatAiService.php
+// connect with ../app/Services/Harness/SenopatiAgent.php, ../tests/Feature/LiveHarnessTest.php
 
 return [
 

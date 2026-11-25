@@ -1,4 +1,6 @@
 <?php
+// Fitur: Harness tugas coding
+// connect with ../app/Jobs/RunCodingAgent.php, ../database/migrations/0001_01_01_000002_create_jobs_table.php
 
 return [
 

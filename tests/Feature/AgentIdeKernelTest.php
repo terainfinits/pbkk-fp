@@ -1,4 +1,6 @@
 <?php
+// Fitur: Terminal dan eksekusi kode
+// connect with ../../app/Models/User.php, ../../routes/web.php
 
 use App\Models\User;
 

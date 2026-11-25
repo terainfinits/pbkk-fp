@@ -1,3 +1,5 @@
+/* Fitur: Halaman IDE dan navigasi
+connect with ../views/app.blade.php, ../views/components/layout.blade.php, ./agent-ide.css */
 @import 'tailwindcss';
 @import './agent-ide.css';
 

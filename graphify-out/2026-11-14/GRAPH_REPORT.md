@@ -1,17 +1,17 @@
 # Graph Report - pbkk-fp  (2026-11-14)
 
 ## Corpus Check
-- 125 files · ~36,222 words
+- 126 files · ~36,183 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 24 file(s) not represented in the graph (top: (none) 17, .css 2, .example 1)
 
 ## Summary
-- 875 nodes · 1289 edges · 74 communities (43 shown, 31 thin omitted)
+- 864 nodes · 1271 edges · 79 communities (43 shown, 36 thin omitted)
 - Extraction: 96% EXTRACTED · 4% INFERRED · 0% AMBIGUOUS · INFERRED: 50 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `8ccc89a9`
+- Built from commit: `914af027`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -43,13 +43,13 @@
 - Frontend Runtime Dependencies
 - IDE Application Shell
 - Coding agent lokal
-- Controller
+- DiffViewer.vue
 - Composer Plugin Settings
 - PHP Test Framework
 - Frontend Package Scripts
 - File Drag and Drop
 - File Tree Nodes
-- TerminalService
+- Controller
 - PHP Runtime Dependencies
 - bootstrap/app.php
 - SettingsModal.vue
@@ -68,39 +68,42 @@
 - scripts
 - clsx
 - PETA_FITUR.md
-- ChatAiTest.php
-- pipeline_data_analyst.py
+- load_data
 - generate_primes
+- Illuminate\Http\Request
+- AppServiceProvider.php
 - UserController
+- AuthController.php
+- useIdeApi.ts
 
 ## God Nodes (most connected - your core abstractions)
 1. `FileExplorerService` - 22 edges
 2. `Repository` - 20 edges
 3. `vue` - 20 edges
 4. `compilerOptions` - 19 edges
-5. `User` - 17 edges
-6. `Controller` - 15 edges
+5. `User` - 18 edges
+6. `Controller` - 17 edges
 7. `scripts` - 13 edges
 8. `FileController` - 12 edges
-9. `useIdeState()` - 12 edges
-10. `require-dev` - 12 edges
+9. `FallbackAgentResponder` - 12 edges
+10. `LlmProviderService` - 12 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `{closure#1}()` --calls--> `AgentResponseFormatter`  [EXTRACTED]
-  tests/Unit/AgentFilesTest.php → app/Services/AgentIde/AgentResponseFormatter.php
-- `{closure#1}()` --calls--> `RunCodingAgent`  [EXTRACTED]
-  tests/Feature/HarnessTest.php → app/Jobs/RunCodingAgent.php
 - `UserController` --inherits--> `Controller`  [EXTRACTED]
   folder-generated/app/Http/Controllers/UserController.php → app/Http/Controllers/Controller.php
+- `{closure#1}()` --calls--> `RunCodingAgent`  [EXTRACTED]
+  tests/Feature/HarnessTest.php → app/Jobs/RunCodingAgent.php
+- `{closure#1}()` --calls--> `AgentResponseFormatter`  [EXTRACTED]
+  tests/Unit/AgentFilesTest.php → app/Services/AgentIde/AgentResponseFormatter.php
 - `handleDelete()` --calls--> `confirm()`  [INFERRED]
   resources/js/components/agent-ide/SidebarExplorer.vue → resources/js/components/agent-ide/CreateModal.vue
-- `ChatSessionController` --inherits--> `Controller`  [EXTRACTED]
-  app/Http/Controllers/Api/AgentIde/ChatSessionController.php → app/Http/Controllers/Controller.php
+- `AgentIdeController` --inherits--> `Controller`  [EXTRACTED]
+  app/Http/Controllers/AgentIdeController.php → app/Http/Controllers/Controller.php
 
 ## Import Cycles
 - None detected.
 
-## Communities (74 total, 31 thin omitted)
+## Communities (79 total, 36 thin omitted)
 
 ### Community 0 - "package.json"
 Cohesion: 0.21
@@ -115,12 +118,8 @@ Cohesion: 0.09
 Nodes (7): ChatController, AgentContextBuilder, AgentResponseFormatter, activeTab, FallbackAgentResponder, LlmProviderService, {closure#1}()
 
 ### Community 3 - "Monaco Editor and Diff"
-Cohesion: 0.06
-Nodes (31): monaco-editor@^0.57.0, monaco-editor-vue3@^1.0.5, monaco-editor, monaco-editor-vue3, currentModified, DiffEditorComponent, diffEditorRef, emit (+23 more)
-
-### Community 4 - "web.php"
-Cohesion: 0.07
-Nodes (4): AgentIdeController, AuthController, AppServiceProvider, {closure#1}()
+Cohesion: 0.08
+Nodes (18): activeTab, charCount, code, CodeEditorComponent, currentTheme, cursorPos, diffIsNewFile, diffLanguage (+10 more)
 
 ### Community 5 - "Chat Panel and Sessions"
 Cohesion: 0.08
@@ -131,8 +130,8 @@ Cohesion: 0.08
 Nodes (21): ChatMessage, ChatSessionItem, clearSearch(), currentSessionId, getApiKey(), isLoadingSessions, isThinking, loadSessions() (+13 more)
 
 ### Community 7 - "FileExplorerService"
-Cohesion: 0.14
-Nodes (4): FileController, KernelController, Controller, FileExplorerService
+Cohesion: 0.09
+Nodes (5): FileController, KernelController, FileExplorerService, KernelRunnerService, TerminalService
 
 ### Community 8 - "Continuous Integration"
 Cohesion: 0.09
@@ -151,8 +150,8 @@ Cohesion: 0.10
 Nodes (20): compilerOptions, allowJs, esModuleInterop, forceConsistentCasingInFileNames, isolatedModules, jsx, jsxImportSource, lib (+12 more)
 
 ### Community 12 - "Composer Scripts"
-Cohesion: 0.16
-Nodes (8): emit, kernelText, targetDisplay, KernelInfo, KernelsResponse, OpenTab, Toast, useIdeState()
+Cohesion: 0.15
+Nodes (10): vue, emit, kernelText, targetDisplay, KernelInfo, KernelsResponse, OpenTab, Toast (+2 more)
 
 ### Community 13 - "HarnessPanel.vue"
 Cohesion: 0.15
@@ -199,12 +198,16 @@ Cohesion: 0.18
 Nodes (10): autoload-dev, psr-4, description, keywords, license, minimum-stability, name, Tests\\ (+2 more)
 
 ### Community 25 - "IDE Application Shell"
-Cohesion: 0.17
-Nodes (15): createIdeApi(), csrf(), defaultRoutes, del(), get(), IdeRoutes, post(), api (+7 more)
+Cohesion: 0.18
+Nodes (9): IdeRoutes, api, createType, harnessOpen, isCreateOpen, isSettingsOpen, props, routes (+1 more)
 
 ### Community 26 - "Coding agent lokal"
 Cohesion: 0.50
 Nodes (3): Coding agent lokal, Demo dua file, Menjalankan aplikasi
+
+### Community 27 - "DiffViewer.vue"
+Cohesion: 0.21
+Nodes (9): currentModified, DiffEditorComponent, diffEditorRef, emit, handleApply(), handleClose(), handleDiffEditorMount(), loadMonaco() (+1 more)
 
 ### Community 28 - "Composer Plugin Settings"
 Cohesion: 0.29
@@ -219,16 +222,16 @@ Cohesion: 0.33
 Nodes (3): hasFiles(), isDragging, onDragEnter()
 
 ### Community 32 - "File Tree Nodes"
-Cohesion: 0.18
-Nodes (8): vue@^3.5.13, vue, emit, hasChildren, open, props, TreeNodeItem, *.vue
+Cohesion: 0.29
+Nodes (5): emit, hasChildren, open, props, TreeNodeItem
 
 ### Community 34 - "PHP Runtime Dependencies"
 Cohesion: 0.29
 Nodes (7): require, inertiajs/inertia-laravel, laravel/framework, laravel/sanctum, laravel/tinker, laravel/wayfinder, php
 
 ### Community 35 - "bootstrap/app.php"
-Cohesion: 0.18
-Nodes (4): HandleInertiaRequests, {closure#1}(), {closure#2}(), {closure#3}()
+Cohesion: 0.28
+Nodes (3): {closure#1}(), {closure#2}(), {closure#3}()
 
 ### Community 36 - "SettingsModal.vue"
 Cohesion: 0.33
@@ -240,19 +243,19 @@ Nodes (5): autoload, psr-4, App\\, Database\\Factories\\, Database\\Seeders\\
 
 ### Community 43 - "Repository"
 Cohesion: 0.07
-Nodes (8): RegisterWorkspace, {closure#2}(), HarnessController, {closure#1}(), RunCodingAgent, Repository, Tools, {closure#1}()
+Nodes (8): RegisterWorkspace, {closure#2}(), {closure#1}(), RunCodingAgent, Repository, SenopatiAgent, Tools, {closure#1}()
 
 ### Community 45 - "Laravel Package Discovery"
 Cohesion: 0.67
 Nodes (3): extra, laravel, dont-discover
 
 ### Community 62 - "Controller"
-Cohesion: 0.21
+Cohesion: 0.17
 Nodes (4): ChatAiController, ChatAiRequest, ChatAiResource, ChatAiService
 
 ### Community 63 - "dependencies"
-Cohesion: 0.15
-Nodes (13): dependencies, concurrently@^10.0.3, dompurify@3.4.15, marked@14.0.0, tailwindcss@^4.1.1, typescript@^5.2.2, vite@^8.0.0, concurrently (+5 more)
+Cohesion: 0.11
+Nodes (18): dependencies, concurrently@^10.0.3, dompurify@3.4.15, marked@14.0.0, monaco-editor@^0.57.0, monaco-editor-vue3@^1.0.5, tailwindcss@^4.1.1, typescript@^5.2.2 (+10 more)
 
 ### Community 64 - "vite.config.ts"
 Cohesion: 0.22
@@ -270,29 +273,29 @@ Nodes (7): scripts, build, build:ssr, check, check:fix, dev, types:check
 Cohesion: 0.33
 Nodes (4): clsx@^2.1.1, tailwind-merge@^3.2.0, clsx, tailwind-merge
 
-### Community 71 - "pipeline_data_analyst.py"
-Cohesion: 0.16
-Nodes (7): load_data(), analyze_data(), clean_data(), data_pipeline(), load_data(), transform_data(), visualize_data()
+### Community 77 - "useIdeApi.ts"
+Cohesion: 0.57
+Nodes (6): createIdeApi(), csrf(), defaultRoutes, del(), get(), post()
 
 ## Knowledge Gaps
 - **6 isolated node(s):** `Past chat sessions and keyword search`, `Editor generated changes with accept reject and diff`, `Local setup with Composer npm and Artisan`, `Python input terminal bug`, `Wiki navigation` (+1 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 401 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **31 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 399 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **36 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `vue` connect `File Tree Nodes` to `package.json`, `Files and Kernel Services`, `Monaco Editor and Diff`, `SettingsModal.vue`, `Database Migrations`, `Continuous Integration`, `TypeScript Compiler Settings`, `Composer Scripts`, `HarnessPanel.vue`, `Inertia Pages and Bootstrap`, `Authentication Type Definitions`, `IDE Application Shell`, `Frontend Package Scripts`, `File Drag and Drop`?**
-  _High betweenness centrality (0.279) - this node is a cross-community bridge._
+- **Why does `vue` connect `Composer Scripts` to `package.json`, `File Tree Nodes`, `Files and Kernel Services`, `Monaco Editor and Diff`, `SettingsModal.vue`, `Database Migrations`, `Continuous Integration`, `TypeScript Compiler Settings`, `HarnessPanel.vue`, `Inertia Pages and Bootstrap`, `Authentication Type Definitions`, `IDE Application Shell`, `DiffViewer.vue`, `File Drag and Drop`, `Frontend Package Scripts`, `dependencies`?**
+  _High betweenness centrality (0.287) - this node is a cross-community bridge._
 - **What connects `Past chat sessions and keyword search`, `Editor generated changes with accept reject and diff`, `Local setup with Composer npm and Artisan` to the rest of the system?**
   _6 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Users and Chat Models` be split into smaller, more focused modules?**
   _Cohesion score 0.05 - nodes in this community are weakly interconnected._
-- **Why does `ChatController` connect `Files and Kernel Services` to `web.php`?**
-  _High betweenness centrality (0.047) - this node is a cross-community bridge._
+- **Why does `User` connect `Users and Chat Models` to `Repository`, `AuthController.php`, `ChatAiTest.php`?**
+  _High betweenness centrality (0.055) - this node is a cross-community bridge._
 - **Should `Files and Kernel Services` be split into smaller, more focused modules?**
-  _Cohesion score 0.08826945412311266 - nodes in this community are weakly interconnected._
-- **Why does `User` connect `Users and Chat Models` to `Repository`, `web.php`, `ChatAiTest.php`?**
-  _High betweenness centrality (0.045) - this node is a cross-community bridge._
+  _Cohesion score 0.09358974358974359 - nodes in this community are weakly interconnected._
 - **Should `Monaco Editor and Diff` be split into smaller, more focused modules?**
-  _Cohesion score 0.05807200929152149 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.08307692307692308 - nodes in this community are weakly interconnected._
+- **Should `web.php` be split into smaller, more focused modules?**
+  _Cohesion score 0.13333333333333333 - nodes in this community are weakly interconnected._

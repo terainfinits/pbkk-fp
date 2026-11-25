@@ -1,3 +1,6 @@
+<!-- Fitur: Halaman IDE dan navigasi
+connect with ../../composables/useIdeApi.ts, ../../composables/useIdeState.ts, ../../pages/AgentIdeApp.vue
+connect with ./EditorPane.vue -->
 <script setup lang="ts">
 import { computed, inject } from 'vue';
 import type { IdeApi } from '@/composables/useIdeApi';

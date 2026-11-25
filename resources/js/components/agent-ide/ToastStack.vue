@@ -1,3 +1,5 @@
+<!-- Fitur: Halaman IDE dan navigasi
+connect with ../../composables/useIdeState.ts, ../../pages/AgentIdeApp.vue -->
 <script setup lang="ts">
 import { inject } from 'vue';
 import type { useIdeState } from '@/composables/useIdeState';

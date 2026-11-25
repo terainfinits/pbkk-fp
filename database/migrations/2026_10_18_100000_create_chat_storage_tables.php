@@ -1,4 +1,7 @@
 <?php
+// Fitur: Riwayat dan ekspor percakapan
+// connect with ../../app/Models/ChatMessage.php, ../../app/Models/ChatSession.php, ../../tests/Feature/IdePromptTest.php
+// connect with ./2026_10_19_000000_add_user_id_to_chat_sessions_table.php
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;

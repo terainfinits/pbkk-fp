@@ -1,4 +1,8 @@
 <?php
+// Fitur: Harness tugas coding
+// connect with ../../app/Console/Commands/RegisterWorkspace.php, ../../app/Jobs/RunCodingAgent.php, ../../app/Models/User.php
+// connect with ../../app/Services/Harness/Repository.php, ../../app/Services/Harness/Tools.php, ../../config/chat_ai.php
+// connect with ../../database/migrations/2026_11_14_000000_create_harness_tables.php, ../../routes/harness.php
 
 use App\Jobs\RunCodingAgent;
 use App\Models\User;

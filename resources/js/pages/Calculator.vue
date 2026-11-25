@@ -1,3 +1,5 @@
+<!-- Fitur: Halaman Vue tanpa rute terdaftar
+connect with ../app.ts -->
 <template>
     <nav
         class="sticky top-0 z-50 border-b border-gray-800 bg-gray-900 p-4 shadow-lg"

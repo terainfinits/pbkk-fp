@@ -1,3 +1,9 @@
+<!-- Fitur: Halaman IDE dan navigasi
+connect with ../../../app/Http/Controllers/AgentIdeController.php, ../app.ts, ../components/agent-ide/ChatPanel.vue
+connect with ../components/agent-ide/CreateModal.vue, ../components/agent-ide/EditorPane.vue, ../components/agent-ide/FileDropZone.vue
+connect with ../components/agent-ide/HarnessPanel.vue, ../components/agent-ide/HeaderNav.vue, ../components/agent-ide/SettingsModal.vue
+connect with ../components/agent-ide/SidebarExplorer.vue, ../components/agent-ide/ToastStack.vue, ../composables/useIdeApi.ts
+connect with ../composables/useIdeState.ts -->
 <script setup lang="ts">
 import { computed, onMounted, provide, ref } from 'vue';
 import HeaderNav from '@/components/agent-ide/HeaderNav.vue';

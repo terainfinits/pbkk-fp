@@ -1,4 +1,7 @@
 <?php
+// Fitur: Halaman IDE dan navigasi
+// connect with ../../../resources/js/pages/AgentIdeApp.vue, ../../../routes/web.php, ../../Services/AgentIde/FallbackAgentResponder.php
+// connect with ./Controller.php
 
 namespace App\Http\Controllers;
 

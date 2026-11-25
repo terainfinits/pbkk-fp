@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Fitur: Contoh keluaran workspace
+# Koneksi lokal: berdiri sendiri; tidak ditemukan rujukan antarfile.
 """
 Simple Calculator
 

@@ -1,4 +1,6 @@
 <?php
+// Fitur: Login, registrasi dan akses pengguna
+// connect with ../../app/Models/ChatSession.php, ../../app/Models/User.php, ../../routes/web.php
 
 use App\Models\ChatSession;
 use App\Models\User;

@@ -1,4 +1,8 @@
 <?php
+// Fitur: Harness tugas coding
+// connect with ../../../routes/console.php, ../../../tests/Feature/HarnessTest.php, ../../../tests/Feature/LiveHarnessTest.php
+// connect with ../../Console/Commands/RegisterWorkspace.php, ../../Http/Controllers/HarnessController.php, ../../Jobs/RunCodingAgent.php
+// connect with ./Tools.php
 
 namespace App\Services\Harness;
 

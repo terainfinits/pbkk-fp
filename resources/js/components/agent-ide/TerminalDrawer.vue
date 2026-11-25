@@ -1,3 +1,6 @@
+<!-- Fitur: Terminal dan eksekusi kode
+connect with ../../composables/useIdeApi.ts, ../../composables/useIdeState.ts, ./ChatPanel.vue
+connect with ./EditorPane.vue -->
 <script setup lang="ts">
 import { computed, inject, nextTick, onMounted, ref, watch } from 'vue';
 import type { IdeApi } from '@/composables/useIdeApi';

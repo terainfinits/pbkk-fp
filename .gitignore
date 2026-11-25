@@ -30,8 +30,9 @@ Homestead.json
 .env.testing
 .phpactor.json
 auth.json
-/.opencode/
-/graphify-out/
+.opencode/
+graphify-out/
+folder-generated/
 =======
 /.phpunit.cache
 /bootstrap/ssr

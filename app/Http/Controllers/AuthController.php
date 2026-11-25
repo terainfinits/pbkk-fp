@@ -1,4 +1,7 @@
 <?php
+// Fitur: Login, registrasi dan akses pengguna
+// connect with ../../../resources/js/pages/Auth/Login.vue, ../../../resources/js/pages/Auth/Register.vue, ../../../routes/web.php
+// connect with ../../Models/User.php, ./Controller.php
 
 namespace App\Http\Controllers;
 

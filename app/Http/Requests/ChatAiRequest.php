@@ -1,4 +1,6 @@
 <?php
+// Fitur: API chat bertoken dan log penggunaan
+// connect with ../Controllers/Api/ChatAiController.php
 
 namespace App\Http\Requests;
 

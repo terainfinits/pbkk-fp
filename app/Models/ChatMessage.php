@@ -1,4 +1,7 @@
 <?php
+// Fitur: Riwayat dan ekspor percakapan
+// connect with ../../database/migrations/2026_10_18_100000_create_chat_storage_tables.php, ../../tests/Feature/ChatStorageTest.php, ../Http/Controllers/Api/AgentIde/ChatController.php
+// connect with ./ChatSession.php
 
 namespace App\Models;
 

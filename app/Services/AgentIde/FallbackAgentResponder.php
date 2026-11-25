@@ -1,4 +1,7 @@
 <?php
+// Fitur: Panel chat dan pengaturan model
+// connect with ../../Http/Controllers/AgentIdeController.php, ../../Http/Controllers/Api/AgentIde/ChatController.php, ../../Http/Controllers/Controller.php
+// connect with ../../Models/User.php
 
 namespace App\Services\AgentIde;
 

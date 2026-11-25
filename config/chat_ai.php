@@ -1,4 +1,6 @@
 <?php
+// Fitur: API chat bertoken dan log penggunaan
+// connect with ../app/Services/ChatAiService.php, ../app/Services/Harness/SenopatiAgent.php, ../tests/Feature/HarnessTest.php
 
 return [
     'ollama_url' => env('OLLAMA_BASE_URL', 'http://localhost:11434'),

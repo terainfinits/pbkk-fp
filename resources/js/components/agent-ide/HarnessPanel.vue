@@ -1,3 +1,6 @@
+<!-- Fitur: Harness tugas coding
+connect with ../../../../app/Console/Commands/RegisterWorkspace.php, ../../../../routes/harness.php, ../../pages/AgentIdeApp.vue
+connect with ./DiffViewer.vue -->
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import DiffViewer from './DiffViewer.vue';

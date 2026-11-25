@@ -1,3 +1,5 @@
+{{-- Fitur: Halaman IDE dan navigasi
+connect with ../../app/Http/Middleware/HandleInertiaRequests.php, ../css/app.css, ../js/app.ts --}}
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" @class(['dark' => ($appearance ?? 'system') == 'dark'])>
 

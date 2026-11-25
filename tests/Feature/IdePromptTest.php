@@ -1,4 +1,6 @@
 <?php
+// Fitur: Panel chat dan pengaturan model
+// connect with ../../app/Models/User.php, ../../database/migrations/2026_10_18_100000_create_chat_storage_tables.php, ../../routes/web.php
 
 use App\Models\User;
 use Illuminate\Support\Facades\Http;

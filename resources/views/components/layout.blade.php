@@ -1,3 +1,5 @@
+{{-- Fitur: Halaman IDE dan navigasi
+connect with ../../css/app.css, ../../js/app.ts, ../errors/404.blade.php --}}
 <!DOCTYPE html>
 <html lang="en">
 <head>

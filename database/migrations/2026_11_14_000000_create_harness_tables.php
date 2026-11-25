@@ -1,4 +1,8 @@
 <?php
+// Fitur: Harness tugas coding
+// connect with ../../app/Console/Commands/RegisterWorkspace.php, ../../app/Http/Controllers/HarnessController.php, ../../app/Jobs/RunCodingAgent.php
+// connect with ../../routes/console.php, ../../tests/Feature/HarnessTest.php, ../../tests/Feature/LiveHarnessTest.php
+// connect with ./0001_01_01_000000_create_users_table.php
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;

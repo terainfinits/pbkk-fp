@@ -1,4 +1,6 @@
 <?php
+// Fitur: Harness tugas coding
+// connect with ../../config/queue.php
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;

@@ -1,3 +1,5 @@
+{{-- Fitur: Halaman IDE dan navigasi
+connect with ../../../routes/web.php, ../components/layout.blade.php --}}
 <x-layout>
 
     <!-- Hero / 404 Error Section -->

@@ -1,3 +1,5 @@
+<!-- Fitur: Login, registrasi dan akses pengguna
+connect with ../../../../app/Http/Controllers/AuthController.php, ../../../../routes/web.php, ../../app.ts -->
 <script setup lang="ts">
 import { Head, Link, useForm } from '@inertiajs/vue3';
 

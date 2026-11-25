@@ -1,4 +1,6 @@
 <?php
+// Fitur: Terminal dan eksekusi kode
+// connect with ../../Http/Controllers/Api/AgentIde/KernelController.php
 
 namespace App\Services\AgentIde;
 

@@ -1,4 +1,7 @@
 <?php
+// Fitur: Riwayat dan ekspor percakapan
+// connect with ../../app/Models/ChatMessage.php, ../../app/Models/ChatSession.php, ../../app/Models/User.php
+// connect with ../../routes/web.php
 
 use App\Models\ChatMessage;
 use App\Models\ChatSession;

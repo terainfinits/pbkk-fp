@@ -1,3 +1,6 @@
+<!-- Fitur: Explorer, pembuatan dan unggah file
+connect with ../../composables/useIdeApi.ts, ../../composables/useIdeState.ts, ../../pages/AgentIdeApp.vue
+connect with ./SidebarExplorer.vue -->
 <script setup lang="ts">
 import { inject, ref, watch } from 'vue';
 import type { IdeApi } from '@/composables/useIdeApi';

@@ -1,4 +1,11 @@
 <?php
+// Fitur: Halaman IDE dan navigasi
+// connect with ../app/Http/Controllers/AgentIdeController.php, ../app/Http/Controllers/Api/AgentIde/ChatController.php, ../app/Http/Controllers/Api/AgentIde/ChatSessionController.php
+// connect with ../app/Http/Controllers/Api/AgentIde/FileController.php, ../app/Http/Controllers/Api/AgentIde/KernelController.php, ../app/Http/Controllers/Api/AgentIde/TerminalController.php
+// connect with ../app/Http/Controllers/AuthController.php, ../bootstrap/app.php, ../resources/js/composables/useIdeApi.ts
+// connect with ../resources/js/pages/Auth/Login.vue, ../resources/js/pages/Auth/Register.vue, ../resources/views/errors/404.blade.php
+// connect with ../tests/Feature/AgentIdeKernelTest.php, ../tests/Feature/AuthTest.php, ../tests/Feature/ChatStorageTest.php
+// connect with ../tests/Feature/ExampleTest.php, ../tests/Feature/IdePromptTest.php, ./harness.php
 
 use App\Http\Controllers\AgentIdeController;
 use App\Http\Controllers\AuthController;

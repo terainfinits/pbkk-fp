@@ -1,4 +1,8 @@
 <?php
+// Fitur: Harness tugas coding
+// connect with ../../config/queue.php, ../../database/migrations/2026_11_14_000000_create_harness_tables.php, ../../tests/Feature/HarnessTest.php
+// connect with ../Http/Controllers/HarnessController.php, ../Services/Harness/Repository.php, ../Services/Harness/SenopatiAgent.php
+// connect with ../Services/Harness/Tools.php
 
 namespace App\Jobs;
 

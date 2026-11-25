@@ -1,4 +1,6 @@
 <?php
+// Fitur: Halaman IDE dan navigasi
+// connect with ../../../bootstrap/app.php, ../../../resources/views/app.blade.php
 
 namespace App\Http\Middleware;
 

@@ -1,4 +1,6 @@
 <?php
+// Fitur: Terminal dan eksekusi kode
+// connect with ../../Http/Controllers/Api/AgentIde/TerminalController.php, ./FileExplorerService.php
 
 namespace App\Services\AgentIde;
 

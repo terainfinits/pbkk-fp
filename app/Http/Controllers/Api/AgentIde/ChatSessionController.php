@@ -1,4 +1,6 @@
 <?php
+// Fitur: Riwayat dan ekspor percakapan
+// connect with ../../../../../routes/web.php, ../../../../Models/ChatSession.php, ../../Controller.php
 
 namespace App\Http\Controllers\Api\AgentIde;
 

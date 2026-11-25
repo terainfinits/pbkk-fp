@@ -1,4 +1,7 @@
 <?php
+// Fitur: Terminal dan eksekusi kode
+// connect with ../../../../../routes/web.php, ../../../../Services/AgentIde/FileExplorerService.php, ../../../../Services/AgentIde/KernelRunnerService.php
+// connect with ../../Controller.php
 
 namespace App\Http\Controllers\Api\AgentIde;
 

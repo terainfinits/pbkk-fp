@@ -1,4 +1,6 @@
 <?php
+// Fitur: Contoh keluaran workspace
+// connect with ../../../../app/Http/Controllers/Controller.php, ../../../../app/Models/User.php
 
 namespace App\Http\Controllers;
 
