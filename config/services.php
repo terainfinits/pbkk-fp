@@ -4,6 +4,7 @@
 // connect with ../app/Services/Harness/SenopatiAgent.php, ../tests/Feature/LiveHarnessTest.php
 
 return [
+    'ide_runner_image' => env('IDE_RUNNER_IMAGE'),
 
     /*
     |--------------------------------------------------------------------------

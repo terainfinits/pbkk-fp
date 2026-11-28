@@ -9,6 +9,13 @@ use RuntimeException;
 
 class SenopatiAgent
 {
+    private ?\Closure $recordBody = null;
+
+    public function recordBodies(\Closure $record): void
+    {
+        $this->recordBody = $record;
+    }
+
     public function next(array $messages, int $timeout): string
     {
         $key = config('services.senopati.api_key');
@@ -20,18 +27,22 @@ class SenopatiAgent
         if (parse_url($endpoint, PHP_URL_SCHEME) !== 'https') {
             throw new RuntimeException('SENOPATI_ENDPOINT harus memakai HTTPS.');
         }
+        $payload = [
+            'model' => config('chat_ai.senopati_model'),
+            'messages' => $messages,
+            'stream' => false,
+            'temperature' => 0,
+            'response_format' => ['type' => 'json_object'],
+        ];
+        $body = json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE);
+        if ($this->recordBody) ($this->recordBody)('request', $body, null);
         try {
             $response = Http::withToken($key)->connectTimeout(min(10, $timeout))->timeout($timeout)
-                ->withoutRedirecting()->post($endpoint, [
-                    'model' => config('chat_ai.senopati_model'),
-                    'messages' => $messages,
-                    'stream' => false,
-                    'temperature' => 0,
-                    'response_format' => ['type' => 'json_object'],
-                ]);
-        } catch (\Illuminate\Http\Client\ConnectionException) {
-            throw new RuntimeException('Senopati tidak terhubung. Periksa endpoint dan akses jaringan ITS/VPN.');
+                ->withoutRedirecting()->withBody($body, 'application/json')->post($endpoint);
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+            throw new RuntimeException(\App\Services\SenopatiConnection::describe($e));
         }
+        if ($this->recordBody) ($this->recordBody)('response', $response->body(), $response->status());
         if (!$response->successful()) {
             throw new RuntimeException('Senopati mengembalikan HTTP '.$response->status().'. Periksa akses API dan model.');
         }

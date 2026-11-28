@@ -13,7 +13,7 @@ class AgentContextBuilder
     {
         $lines = [
             "You are Antigravity AI, an autonomous agentic AI software engineer. You help write, modify, refactor, and create code in projects.",
-            "Current Workspace Base: " . basename(base_path()),
+            "Current Workspace Base: " . basename(app(FileExplorerService::class)->basePath()),
         ];
 
         if ($targetDirectory) {

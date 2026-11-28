@@ -21,6 +21,12 @@ class FileExplorerService {
     private const MAX_TREE_DEPTH = 5;
 
     public function basePath(): string {
+        $space = app(Projects::class)->current();
+        if ($space) {
+            $root = realpath($space->path);
+            abort_unless($root && is_dir($root), 404);
+            return $root;
+        }
         $path = base_path('folder-generated');
 
         if (!is_dir($path)) {
@@ -34,36 +40,31 @@ class FileExplorerService {
      * guaranteed to live inside base_path(). Returns null if it doesn't.
      */
     public function resolveExistingPath(string $relativePath): ?string {
-        $basePath = $this->basePath();
-        $fullPath = realpath($basePath . DIRECTORY_SEPARATOR . $relativePath);
-
-        if (!$fullPath || !str_starts_with($fullPath, $basePath)) {
-            return null;
-        }
-
-        return $fullPath;
+        [, $path] = $this->safeNewPath($relativePath);
+        return $relativePath !== '' && file_exists($path) ? $path : null;
     }
 
-    /**
-     * Build a safe absolute path for a file/dir that does not need to
-     * exist yet (create operations), stripping any directory traversal.
-     */
     public function safeNewPath(string $relativePath): array {
-        $cleanRelPath = ltrim(str_replace(['../', '..\\'], '', $relativePath), '/\\');
-        $fullPath = $this->basePath() . DIRECTORY_SEPARATOR . $cleanRelPath;
-
-        return [$cleanRelPath, $fullPath];
+        $root = realpath($this->basePath());
+        $rel = str_replace('\\', '/', $relativePath);
+        if ($rel === '') return ['', $root];
+        $path = $root;
+        foreach (explode('/', $rel) as $part) {
+            abort_if(in_array($part, ['', '.', '..'], true) || preg_match('/[:\x00-\x1f]/', $part)
+                || strcasecmp($part, '.git') === 0 || preg_match('/[. ]$/', $part), 422, 'Path tidak valid.');
+            $path .= DIRECTORY_SEPARATOR.$part;
+            abort_if(is_link($path), 422, 'Path tautan tidak diperbolehkan.');
+            if (file_exists($path)) {
+                $resolved = realpath($path);
+                abort_unless($resolved && str_starts_with($resolved, $root.DIRECTORY_SEPARATOR), 422);
+            }
+        }
+        return [$rel, $path];
     }
 
     public function scanTree(string $targetDir = ''): array {
         $basePath = $this->basePath();
-        $fullPath = empty($targetDir)
-            ? $basePath
-            : (realpath($basePath . DIRECTORY_SEPARATOR . $targetDir) ?: $basePath);
-
-        if (!str_starts_with($fullPath, $basePath)) {
-            $fullPath = $basePath;
-        }
+        [, $fullPath] = $this->safeNewPath($targetDir);
 
         return [
             'root' => basename($basePath),
@@ -92,7 +93,8 @@ class FileExplorerService {
             $filePath = $dir . DIRECTORY_SEPARATOR . $file;
             $relativeNormalized = str_replace('\\', '/', ltrim(str_replace($basePath, '', $filePath), '/\\'));
 
-            if ($this->isIgnored($file, $relativeNormalized)) {
+            $resolved = realpath($filePath);
+            if (!$resolved || !str_starts_with($resolved, $basePath.DIRECTORY_SEPARATOR) || is_link($filePath) || $this->isIgnored($file, $relativeNormalized)) {
                 continue;
             }
 
@@ -149,6 +151,7 @@ class FileExplorerService {
     }
 
     public function saveFile(string $relativePath, string $content): array {
+        abort_if($relativePath === '', 422);
         [$cleanRelPath, $fullPath] = $this->safeNewPath($relativePath);
 
         $dir = dirname($fullPath);
@@ -168,6 +171,7 @@ class FileExplorerService {
      * @return array{ok: bool, path?: string, error?: string}
      */
     public function createItem(string $relativePath, string $type, string $initialContent = ''): array {
+        abort_if($relativePath === '', 422);
         [$cleanRelPath, $fullPath] = $this->safeNewPath($relativePath);
 
         if (file_exists($fullPath)) {
@@ -221,6 +225,7 @@ class FileExplorerService {
 
         $parentDir = dirname($fullPath);
         $newFullPath = $parentDir . DIRECTORY_SEPARATOR . $cleanName;
+        $this->safeNewPath(ltrim(substr($newFullPath, strlen($this->basePath())), DIRECTORY_SEPARATOR));
 
         // Safety: must stay inside basePath.
         $basePath = $this->basePath();
@@ -267,6 +272,7 @@ class FileExplorerService {
             return ['ok' => false, 'error' => 'Invalid file name.'];
         }
 
+        $this->safeNewPath(ltrim($targetDirectory.'/'.$cleanName, '/'));
         $isZip = strtolower(pathinfo($cleanName, PATHINFO_EXTENSION)) === 'zip';
 
         // Resolve target directory safely.
@@ -325,6 +331,7 @@ class FileExplorerService {
                 @unlink($tempZip);
                 return ['ok' => false, 'error' => 'ZIP extraction size exceeds allowed limit.'];
             }
+            $this->safeNewPath(ltrim($targetDirectory.'/'.rtrim($name,'/'), '/'));
             $entries[] = $name;
         }
 

@@ -32,15 +32,35 @@ class RunCodingAgent implements ShouldQueue
         return DB::table('agent_runs')->where('id', $this->runId);
     }
 
-    private function event(string $kind, string $message, ?int $code = null): void
+    private int $turn = 0;
+    private string $activity = 'run';
+
+    private function event(string $kind, string $message, ?int $code = null, ?int $duration = null): void
     {
+        $key = config('services.senopati.api_key');
+        if (is_string($key) && $key !== '') {
+            $message = str_replace($key, '[redacted]', $message);
+        }
+        $message = preg_replace('/Authorization\s*[:=][^\r\n]*/i', '[redacted]', $message);
         DB::table('run_events')->insert(['agent_run_id' => $this->runId, 'kind' => $kind,
-            'message' => mb_scrub(substr($message, 0, 14000)), 'exit_code' => $code]);
+            'time_ms' => (int) (microtime(true) * 1000), 'turn' => $this->turn, 'activity' => $this->activity,
+            'duration_ms' => $duration, 'message' => mb_scrub(substr($message, 0, 14000)), 'exit_code' => $code]);
+    }
+
+    private function trace(string $kind, string $text): void
+    {
+        $text = preg_replace('~<think>.*?(?:</think>|$)~is', '[disembunyikan]', $text);
+        $text = preg_replace('/Bearer\s+[A-Za-z0-9._~+\/=:-]+/i', 'Bearer [redacted]', $text);
+        $text = preg_replace('/((?:api[_-]?key|password|access[_-]?token|client[_-]?secret)["\']?\s*[:=]\s*["\']?)[^\s"\',}]+/i', '$1[redacted]', $text);
+        if (strlen($text) > 13500) {
+            $text = mb_strcut($text, 0, 13500, 'UTF-8')."\n[Rekaman dipotong]";
+        }
+        $this->event($kind, $text);
     }
 
     public function handle(Repository $repo, Tools $tools): void
     {
-        if (!$this->row()->where('status', 'queued')->update(['status' => 'running', 'updated_at' => now()])) {
+        if (!$this->row()->where('status', 'queued')->update(['status' => 'running', 'stop_reason' => null, 'updated_at' => now()])) {
             return;
         }
         $run = $this->row()->first();
@@ -58,7 +78,8 @@ class RunCodingAgent implements ShouldQueue
             $system .= ' /no_think. Output raw JSON only. For patch use --- a/path, +++ b/path, numbered @@ -old,count +new,count @@ headers, and exact context lines prefixed by a space. After every tool, inspect its result. Respect the requested order of operations. Finish only when the task is complete.';
             $images = ['test' => $space->image] + json_decode($space->extra_checks ?? '[]', true);
             $system .= ' Inspect first, then submit {"tool":"plan","goal":"...","files":["..."],"steps":["..."],"criteria":[{"description":"...","check":"test"}]}. Check names: '.implode(', ', array_keys($images)).'. Use manual for criteria needing human inspection. Before planning ask a blocking question with {"tool":"ask","question":"..."}. After green tests finish with {"tool":"finish","summary":"what changed or why no change was needed","evidence":["one specific observation for each criterion in order"]}.';
-            $system .= ' Inspect and plan before modifying files. Run baseline tests before edits when requested. For existing files prefer {"tool":"edit","path":"relative","old":"unique exact substring","new":"replacement"}. Edit one file per action.';
+            $system .= ' Inspect and plan before modifying files. Run baseline tests before edits when requested. Read each existing file before editing it. Prefer {"tool":"edit","path":"relative","old":"unique exact substring","new":"replacement"}. In a patch, use /dev/null as the old path only for a file that does not exist. Edit one file per action.';
+            $system .= ' Sertakan progress berupa satu kalimat singkat dalam bahasa Indonesia tentang tujuan aksi berikutnya, maksimum 160 karakter. Sebut file atau pemeriksaan terkait. Laporkan keberhasilan hanya setelah menerima hasil tool. Jangan sertakan penalaran internal, kredensial, atau isi file.';
             $messages = [['role' => 'system', 'content' => $system], ['role' => 'user', 'content' => $run->task]];
             if ($run->clarifications) {
                 $messages[] = ['role' => 'user', 'content' => $run->clarifications];
@@ -77,21 +98,62 @@ class RunCodingAgent implements ShouldQueue
             $failedTests = 0;
             $testCode = null;
             $agent = app(SenopatiAgent::class);
+            $agent->recordBodies(function (string $direction, string $body, ?int $status) {
+                $key = config('services.senopati.api_key');
+                if (is_string($key) && $key !== '') {
+                    $body = str_replace($key, '[redacted]', $body);
+                }
+                $body = preg_replace('/Bearer [A-Za-z0-9._~+\/=:-]+/i', 'Bearer [redacted]', $body);
+                $directory = storage_path('app/private/harness-transcripts/'.$this->runId);
+                File::ensureDirectoryExists($directory);
+                $path = $directory.'/'.$this->activity.'-'.$direction.'.txt';
+                if (File::put($path, $body) === false) throw new RuntimeException('Gagal menyimpan transkrip.');
+                $label = $direction === 'request' ? 'Request HTTP ke Senopati' : 'Response HTTP '.$status.' dari Senopati';
+                $this->event('raw_'.$direction, $label);
+            });
+            $recorded = 0;
             for ($step = 0; $step < 20; $step++) {
                 $check();
                 $failure = 'provider_error';
                 $instruction = !$inspected ? 'Use read or list to inspect the repo first.' :
                     (!$plan ? 'Planning phase. Now return {"tool":"plan","goal":"...","files":["..."],"steps":["..."],"criteria":[{"description":"...","check":"test"}]} using the task details. You may read additional files first.' :
                     'Coding phase. Use edit for existing files, test to verify, finish with summary and one evidence string per criterion after tests pass.');
-                $raw = $agent->next([...$messages, ['role' => 'user', 'content' => $instruction]], max(1, min(120, $deadline - time())));
+                $this->turn = $step + 1;
+                $this->activity = 'provider-'.bin2hex(random_bytes(6));
+                $request = [...$messages, ['role' => 'user', 'content' => $instruction]];
+                // History is append-only. Record each new message once, and each transient instruction separately.
+                foreach (array_slice($messages, $recorded) as $message) {
+                    $this->trace('trace_message', $message['role']."\n".$message['content']);
+                }
+                $recorded = count($messages);
+                $this->trace('trace_instruction', $instruction);
+                $started = hrtime(true);
+                $this->event('provider_wait', 'Menunggu respons Senopati');
+                try {
+                    $raw = $agent->next($request, max(1, min(120, $deadline - time())));
+                } catch (Throwable $e) {
+                    $this->event('provider_failed', $e->getMessage(), null, (int) ((hrtime(true)-$started)/1e6));
+                    throw $e;
+                }
+                $this->event('provider_done', 'Respons Senopati diterima', null, (int) ((hrtime(true)-$started)/1e6));
+                $this->trace('trace_reply', $raw);
+                $this->activity = 'action-'.bin2hex(random_bytes(6));
                 $failure = 'worker_error';
                 $check();
                 $tool = null;
+                $a = [];
                 $baselineDeferredEdit = false;
                 try {
                     $a = AgentAction::parse($raw, array_keys($images));
                     $tool = $a['tool'];
-                    $this->event('tool', $tool);
+                    $path = $a['path'] ?? '';
+                    $label = match ($tool) {
+                        'read' => "Membaca $path", 'edit' => "Mengedit $path", 'patch' => 'Menerapkan patch',
+                        'list' => 'Memeriksa daftar file', 'search' => 'Mencari dalam repository',
+                        'plan' => 'Memeriksa rencana', 'ask' => 'Meminta klarifikasi',
+                        'finish' => 'Memeriksa syarat selesai', 'test' => 'Menjalankan tes di Docker',
+                    };
+                    $this->event('requested', $a['progress'] ?? $label);
                     if (!$plan && !in_array($tool, ['plan', 'ask', 'list', 'read', 'search'], true)) {
                         throw new RuntimeException('Inspect files and submit a plan first.');
                     }
@@ -100,6 +162,7 @@ class RunCodingAgent implements ShouldQueue
                             throw new RuntimeException('Ask during planning.');
                         }
                         $this->row()->update(['question' => $a['question']]);
+                        $this->event('completed', 'Menunggu jawaban pengguna');
                         $reason = 'question';
                         $status = 'awaiting_input';
                         break;
@@ -119,18 +182,21 @@ class RunCodingAgent implements ShouldQueue
                             $evidence = $a;
                             $manual = in_array('manual', array_column($plan['criteria'], 'check'), true);
                             $status = $manual ? 'review' : 'verified';
+                            $this->event('completed', $manual ? 'Menunggu pemeriksaan manual' : 'Verifikasi selesai');
                             $reason = $manual ? 'manual_check_required' : 'completed';
                             break;
                         }
                         $tool = 'test';
-                        $this->event('tool', 'test');
+                        $this->event('deferred', 'Penyelesaian ditunda sampai tes revisi lulus');
                     }
                     // Capture baseline results before the first edit, even if the model skips the requested test.
                     if (in_array($tool, ['patch', 'edit'], true) && !$baselineCaptured) {
                         $tool = 'test';
-                        $this->event('tool', 'test');
+                        $this->event('deferred', "Edit $path ditunda untuk tes awal");
                         $baselineDeferredEdit = true;
                     }
+                    $this->event('started', $tool === 'test' && !$baselineCaptured ? 'Menjalankan tes awal di Docker' :
+                        ($tool === 'test' ? 'Menjalankan tes revisi di Docker' : $label));
                     $result = match ($tool) {
                         'list' => implode("\n", $tools->files($dir)),
                         'search' => $tools->search($dir, $a['text'] ?? ''),
@@ -165,7 +231,7 @@ class RunCodingAgent implements ShouldQueue
                                 $runner->image = $image;
                                 [$code, $output] = $tools->test($snapshot, $runner, $run->id, $check);
                                 $checks[$name] = ['revision' => $revision, 'exit_code' => $code];
-                                $this->event('test', "$name: $output", $code);
+                                $this->event('test', "$name · revisi $revision: $output", $code);
                                 $result .= "$name exit_code=$code\n".substr($output, -4000)."\n";
                                 if ($code !== 0) {
                                     $testCode = $code;
@@ -187,6 +253,13 @@ class RunCodingAgent implements ShouldQueue
                             break;
                         }
                     }
+                    $completed = match ($tool) {
+                        'edit' => "$path berhasil diubah", 'patch' => 'Patch berhasil diterapkan',
+                        'read' => "$path selesai dibaca", 'plan' => 'Rencana diterima',
+                        'test' => $testCode === 0 ? 'Tes lulus' : 'Tes gagal',
+                        default => "$label selesai",
+                    };
+                    $this->event('completed', $completed);
                     $invalid = 0;
                 } catch (Throwable $e) {
                     if ($tool === 'test') {
@@ -194,12 +267,13 @@ class RunCodingAgent implements ShouldQueue
                         throw $e;
                     }
                     $result = 'Tool error: '.$e->getMessage();
-                    $this->event('tool_error', $result);
+                    $this->event('tool_error', ($a['path'] ?? '').' '.$result);
                     if (++$invalid >= 3) {
                         $reason = 'invalid_actions';
                         break;
                     }
                 }
+                $this->trace('trace_result', (string) $result);
                 $messages[] = ['role' => 'assistant', 'content' => substr((string) $raw, 0, 12000)];
                 $messages[] = ['role' => 'user', 'content' => mb_scrub(substr((string) $result, 0, 12000))];
             }
@@ -210,10 +284,33 @@ class RunCodingAgent implements ShouldQueue
             $repo->discard($space, $this->runId);
             $discarded = true;
             $this->event('result', match ($testCode) { 0 => 'Tes lulus.', null => 'Perubahan terakhir belum diuji.', default => 'Tes gagal.' }, $testCode);
-            $this->row()->where('status', 'running')->update(['status' => $status, 'patch' => $patch,
+            $changesJson = json_encode($changes, JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
+            $result = ['status' => $status, 'patch' => $patch,
                 'phase' => $status === 'awaiting_input' ? 'planning' : 'review', 'revision' => $revision,
                 'stop_reason' => $reason, 'evidence' => $evidence ? json_encode($evidence) : null,
-                'changes' => json_encode($changes, JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR)]);
+                'changes' => $changesJson];
+            if ($status === 'verified' && $run->base === 'folder' && $patch !== '') {
+                DB::transaction(function () use ($repo, $space, $patch, $changesJson, $result) {
+                    if (!$this->row()->where('status', 'running')->update(['status' => 'deciding'])) {
+                        return;
+                    }
+
+                    try {
+                        app(\App\Services\Harness\FolderWorkspace::class)->apply($repo, (object) [
+                            'path' => $space->path, 'patch' => $patch, 'changes' => $changesJson,
+                        ]);
+                    } catch (RuntimeException $e) {
+                        $this->row()->update(array_replace($result, ['status' => 'conflict', 'stop_reason' => 'apply_conflict']));
+                        $this->event('error', $e->getMessage());
+                        return;
+                    }
+
+                    $this->row()->update(array_replace($result, ['status' => 'applied', 'active' => null]));
+                    $this->event('result', 'Perubahan ditulis ke folder-generated.');
+                });
+            } else {
+                $this->row()->where('status', 'running')->update($result);
+            }
         } catch (Throwable $e) {
             $details = ['stop_reason' => time() >= $deadline ? 'timeout' : ($failure ?? 'worker_error')];
             if (isset($dir) && is_dir($dir)) {

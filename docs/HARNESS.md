@@ -4,15 +4,15 @@ Jalankan PHP, Git, worker Laravel dan Docker Linux pada komputer yang sama, deng
 
 ## Menjalankan aplikasi
 
-Gunakan database lokal dan queue database. Isi `.env` dengan `QUEUE_CONNECTION=database`, `DB_QUEUE_RETRY_AFTER=660`, `SENOPATI_API_KEY`, `SENOPATI_MODEL` sesuai model yang diberikan ITS, dan `SENOPATI_ENDPOINT` berisi URL lengkap chat completions yang diberikan ITS. Jalankan migrasi dan buat akun melalui registrasi. Jalankan proses berikut dari terminal terpisah.
+Gunakan database lokal dan queue database. Isi `.env` dengan `QUEUE_CONNECTION=database`, `DB_QUEUE_RETRY_AFTER=660`, `SENOPATI_API_KEY`, `SENOPATI_MODEL` sesuai model yang diberikan ITS, dan `SENOPATI_ENDPOINT` berisi URL lengkap chat completions yang diberikan ITS. Setelah pemasangan awal, jalankan migrasi sekali dan buat akun melalui registrasi. Untuk sesi pengembangan jalankan:
 
 ```sh
-php artisan migrate
-php artisan serve --host=127.0.0.1
-npm run dev
-php artisan queue:work database --queue=harness --tries=1 --timeout=620
-php artisan schedule:work
+composer dev
 ```
+
+Mode lokal (`HARNESS_WORKER_MODE=local`) meluncurkan worker database tersembunyi setelah **Mulai tugas** atau **Lanjutkan**. Worker menghabiskan antrean harness lalu keluar. Jika peluncuran gagal, klik **Coba lagi** untuk membangunkan worker bagi job yang sama.
+
+Untuk server bersama atur `HARNESS_WORKER_MODE=managed` dan jalankan `php artisan queue:work database --queue=harness --tries=1 --timeout=620` melalui service manager. Jalankan scheduler Laravel untuk pemulihan worker yang terputus. Build frontend hanya menyiapkan aset browser.
 
 ## Verifikasi tugas
 

@@ -31,6 +31,8 @@ Route::middleware('auth')->group(function () {
     Route::prefix('ide')->name('ide.')->group(function () {
         Route::get('/', [AgentIdeController::class, 'index'])->name('index');
 
+        Route::get('/api/projects', [\App\Services\AgentIde\Projects::class, 'listing']);
+        Route::post('/prepare-project', [\App\Services\AgentIde\Projects::class, 'prepare']);
         Route::prefix('api')->name('api.')->group(function () {
             Route::get('/tree', [FileController::class, 'tree'])->name('tree');
             Route::post('/file/read', [FileController::class, 'read'])->name('file.read');

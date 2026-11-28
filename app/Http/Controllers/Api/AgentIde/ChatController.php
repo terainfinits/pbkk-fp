@@ -55,10 +55,17 @@ class ChatController extends Controller
             $apiKey = config('services.senopati.api_key', '');
         }
 
+        $files = app(\App\Services\AgentIde\FileExplorerService::class);
+        $files->safeNewPath($targetFile ?? '');
+        if ($targetFile && !$request->has('currentCode')) {
+            $currentCode = $files->readFile($targetFile)['content'] ?? '';
+        }
+        $files->safeNewPath($targetDirectory ?? '');
+
         // 1. Resolve or create chat session
         $session = null;
         if ($sessionId) {
-            $session = ChatSession::where('user_id', $request->user()->id)->find($sessionId);
+            $session = ChatSession::where('user_id', $request->user()->id)->where('workspace_id', app(\App\Services\AgentIde\Projects::class)->current()?->id)->find($sessionId);
         }
 
         if ($sessionId && !$session) {
@@ -68,6 +75,7 @@ class ChatController extends Controller
         if (!$session) {
             $title = Str::limit(trim($prompt), 35, '...');
             $session = ChatSession::create([
+                'workspace_id' => app(\App\Services\AgentIde\Projects::class)->current()?->id,
                 'user_id' => $request->user()->id,
                 'title' => $title,
                 'provider' => $provider,
@@ -96,16 +104,11 @@ class ChatController extends Controller
                 $response = $this->llm->dispatch($provider, $model, $apiKey, $systemContext, $prompt, $history);
 
                 if (!$response['success']) {
-                    // network/DNS failures are environmental (e.g. Senopati
-                    // only resolves inside the ITS campus network). Serve the
-                    // built-in generator so the user still gets an answer, and
-                    // flag it in the UI. Auth/invalid-key errors keep failing
-                    // loudly — we do NOT fall back for those (decision #5).
                     if (empty($response['network_error'])) {
                         return response()->json(['success' => false, 'error' => $response['error'] ?? 'Live API call failed'], 400);
                     }
 
-                    $notice = $response['error'] . ' Response came from the built-in fallback generator, not the live AI.';
+                    $notice = $response['error'] . ' Jawaban generator lokal.';
                     $formatted = $this->fallback->generate($prompt, $provider, $model, $targetFile, $targetDirectory, $notice);
                     $formatted['fallbackNotice'] = $notice;
                 } else {
@@ -113,6 +116,7 @@ class ChatController extends Controller
                 }
             } else {
                 $formatted = $this->fallback->generate($prompt, $provider, $model, $targetFile, $targetDirectory);
+                $formatted['fallbackNotice'] = 'Jawaban generator lokal.';
             }
 
             // 3. Persist assistant response
@@ -121,6 +125,7 @@ class ChatController extends Controller
                     'role' => 'assistant',
                     'content' => $formatted['explanation'] ?? '',
                     'metadata' => [
+                        'fallbackNotice' => $formatted['fallbackNotice'] ?? null,
                         'raw' => $formatted['raw'] ?? '',
                         'files' => $formatted['files'] ?? [],
                         'code' => $formatted['code'] ?? null,

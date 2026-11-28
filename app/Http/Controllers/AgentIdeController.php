@@ -13,6 +13,8 @@ class AgentIdeController extends Controller
     public function index()
     {
         return Inertia::render('AgentIdeApp', [
+            'projects' => app(\App\Services\AgentIde\Projects::class)->listing(),
+            'owner' => request()->user()->id,
             'routes' => [
                 'tree' => route('ide.api.tree'),
                 'fileRead' => route('ide.api.file.read'),

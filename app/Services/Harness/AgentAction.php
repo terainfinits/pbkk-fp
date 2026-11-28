@@ -31,6 +31,11 @@ class AgentAction
         if ($validator->fails()) {
             throw new RuntimeException($validator->errors()->first());
         }
-        return $validator->validated();
+        $validated = $validator->validated();
+        $progress = $action['progress'] ?? null;
+        if (is_string($progress) && trim($progress) !== '' && mb_strlen($progress) <= 160) {
+            $validated['progress'] = trim($progress);
+        }
+        return $validated;
     }
 }

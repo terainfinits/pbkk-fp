@@ -69,6 +69,9 @@ watch(() => state.activeTabPath.value, (newPath) => {
   nextTick(() => { isSwitchingTab.value = false; });
 }, { immediate: true });
 
+watch(() => activeTab.value?.content, (content) => {
+  if (content !== undefined && content !== code.value) code.value = content;
+});
 watch(code, (val) => {
   if (isSwitchingTab.value) return;
   const t = activeTab.value;

@@ -19,7 +19,7 @@ class ChatSessionController extends Controller
     {
         $search = $request->query('search');
 
-        $query = ChatSession::where('user_id', $request->user()->id)
+        $query = ChatSession::where('user_id', $request->user()->id)->where('workspace_id', app(\App\Services\AgentIde\Projects::class)->current()?->id)
             ->withCount('messages')
             ->orderByDesc('updated_at');
 
@@ -46,6 +46,7 @@ class ChatSessionController extends Controller
     public function store(Request $request): JsonResponse
     {
         $session = ChatSession::create([
+                'workspace_id' => app(\App\Services\AgentIde\Projects::class)->current()?->id,
             'user_id' => $request->user()->id,
             'title' => $request->input('title', 'Percakapan Baru'),
             'provider' => $request->input('provider'),
@@ -63,7 +64,7 @@ class ChatSessionController extends Controller
      */
     public function show(Request $request, $id): JsonResponse
     {
-        $session = ChatSession::where('user_id', $request->user()->id)->with('messages')->find($id);
+        $session = ChatSession::where('user_id', $request->user()->id)->where('workspace_id', app(\App\Services\AgentIde\Projects::class)->current()?->id)->with('messages')->find($id);
 
         if (!$session) {
             return response()->json([
@@ -83,7 +84,7 @@ class ChatSessionController extends Controller
      */
     public function export(Request $request, $id)
     {
-        $session = ChatSession::where('user_id', $request->user()->id)->with('messages')->find($id);
+        $session = ChatSession::where('user_id', $request->user()->id)->where('workspace_id', app(\App\Services\AgentIde\Projects::class)->current()?->id)->with('messages')->find($id);
 
         if (!$session) {
             return response()->json([
@@ -143,7 +144,7 @@ class ChatSessionController extends Controller
      */
     public function update(Request $request, $id): JsonResponse
     {
-        $session = ChatSession::where('user_id', $request->user()->id)->find($id);
+        $session = ChatSession::where('user_id', $request->user()->id)->where('workspace_id', app(\App\Services\AgentIde\Projects::class)->current()?->id)->find($id);
 
         if (!$session) {
             return response()->json([
@@ -167,7 +168,7 @@ class ChatSessionController extends Controller
      */
     public function destroy(Request $request, $id): JsonResponse
     {
-        $session = ChatSession::where('user_id', $request->user()->id)->find($id);
+        $session = ChatSession::where('user_id', $request->user()->id)->where('workspace_id', app(\App\Services\AgentIde\Projects::class)->current()?->id)->find($id);
 
         if (!$session) {
             return response()->json([

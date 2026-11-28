@@ -85,22 +85,23 @@ async function get<T = any>(url: string): Promise<T> {
   return { success: false, error: text || `HTTP ${res.status}` } as T;
 }
 
-export function createIdeApi(routes: IdeRoutes) {
+export function createIdeApi(routes: IdeRoutes, project = 'ide') {
   const chatsEndpoint = routes.chats || '/ide/api/chats';
+  const scope = (url: string) => url + (url.includes('?') ? '&' : '?') + 'project=' + encodeURIComponent(project);
   return {
     routes,
-    fetchTree: () => get(routes.tree),
-    readFile: (path: string) => post(routes.fileRead, { path }),
-    saveFile: (path: string, content: string) => post(routes.fileSave, { path, content }),
+    fetchTree: () => get(scope(routes.tree)),
+    readFile: (path: string) => post(scope(routes.fileRead), { path }),
+    saveFile: (path: string, content: string) => post(scope(routes.fileSave), { path, content }),
     createFile: (path: string, type: 'file' | 'directory', content = '') =>
-      post(routes.fileCreate, { path, type, content }),
+      post(scope(routes.fileCreate), { path, type, content }),
 renameFile: (path: string, newName: string) =>
-    post(routes.fileRename, { path, newName }),
+    post(scope(routes.fileRename), { path, newName }),
 uploadFile: (file: File, targetDirectory: string) => {
     const formData = new FormData();
     formData.append('upload', file);
     formData.append('targetDirectory', targetDirectory || '');
-    return fetch(routes.fileUpload, {
+    return fetch(scope(routes.fileUpload), {
         method: 'POST',
         headers: {
             'X-CSRF-TOKEN': csrf(),
@@ -124,10 +125,10 @@ uploadFile: (file: File, targetDirectory: string) => {
         return { success: false, error: concise };
     });
 },
-deleteFile: (path: string) => post(routes.fileDelete, { path }),
-    fetchKernels: () => get(routes.kernels),
+deleteFile: (path: string) => post(scope(routes.fileDelete), { path }),
+    fetchKernels: () => get(scope(routes.kernels)),
     runCode: (code: string, language: string, path = '') =>
-      post(routes.codeRun, { code, language, path }),
+      post(scope(routes.codeRun), { code, language, path }),
     agentPrompt: (payload: {
       provider: string;
       model: string;
@@ -137,16 +138,16 @@ deleteFile: (path: string) => post(routes.fileDelete, { path }),
       targetFile: string;
       currentCode: string;
       sessionId?: number | null;
-    }) => post(routes.agentPrompt, payload),
+    }) => post(scope(routes.agentPrompt), payload),
     fetchChatSessions: (search = '') =>
-      get(`${chatsEndpoint}${search ? `?search=${encodeURIComponent(search)}` : ''}`),
+      get(scope(`${chatsEndpoint}${search ? `?search=${encodeURIComponent(search)}` : ''}`)),
     createChatSession: (title?: string, provider?: string, model?: string) =>
-      post(chatsEndpoint, { title, provider, model }),
-    fetchChatSession: (id: number) => get(`${chatsEndpoint}/${id}`),
-    exportChatUrl: (id: number) => `${chatsEndpoint}/${id}/export`,
-    deleteChatSession: (id: number) => del(`${chatsEndpoint}/${id}`),
+      post(scope(chatsEndpoint), { title, provider, model }),
+    fetchChatSession: (id: number) => get(scope(`${chatsEndpoint}/${id}`)),
+    exportChatUrl: (id: number) => scope(`${chatsEndpoint}/${id}/export`),
+    deleteChatSession: (id: number) => del(scope(`${chatsEndpoint}/${id}`)),
     terminalExecute: (command: string, cwd = '') =>
-      post(routes.terminalExecute, { command, cwd }),
+      post(scope(routes.terminalExecute), { command, cwd }),
   };
 }
 

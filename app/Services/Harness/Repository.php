@@ -6,6 +6,7 @@
 
 namespace App\Services\Harness;
 
+use Illuminate\Support\Facades\DB;
 use RuntimeException;
 use Symfony\Component\Process\Process;
 
@@ -30,7 +31,16 @@ class Repository
 
     public function tree(int $id): string
     {
-        return storage_path('app/private/harness/run-'.$id);
+        $database = DB::connection();
+        // Run IDs are only unique within the database that created them.
+        $namespace = hash('sha256', serialize([
+            $database->getName(),
+            $database->getConfig('host'),
+            $database->getConfig('port'),
+            $database->getDatabaseName(),
+        ]));
+
+        return storage_path('app/private/harness/'.$namespace.'/run-'.$id);
     }
 
     public function checkout(object $run, object $workspace): string
@@ -38,6 +48,10 @@ class Repository
         $dir = $this->tree($run->id);
         if (!is_dir(dirname($dir))) {
             \Illuminate\Support\Facades\File::ensureDirectoryExists(dirname($dir));
+        }
+        if (FolderWorkspace::matches($workspace->path)) {
+            app(FolderWorkspace::class)->snapshot($this, $workspace->path, $dir);
+            return $dir;
         }
         $this->git($workspace->path, ['worktree', 'add', '--detach', $dir, $run->base]);
 
@@ -47,6 +61,10 @@ class Repository
     public function discard(object $workspace, int $id): void
     {
         if (is_dir($this->tree($id))) {
+            if (FolderWorkspace::matches($workspace->path)) {
+                \Illuminate\Support\Facades\File::deleteDirectory($this->tree($id));
+                return;
+            }
             $this->git($workspace->path, ['worktree', 'remove', '--force', $this->tree($id)]);
         }
     }
@@ -74,6 +92,8 @@ class Repository
     public function changes(string $dir): array
     {
         $paths = explode("\0", $this->git($dir, ['diff', '--cached', '--no-renames', '--name-only', '-z', 'HEAD']));
+        $manifest = $dir.'/.git/folder-baseline.json';
+        $baseline = is_file($manifest) ? json_decode(file_get_contents($manifest), true, flags: JSON_THROW_ON_ERROR) : null;
         $changes = [];
         $bytes = 0;
         foreach (array_filter($paths, 'strlen') as $path) {
@@ -87,7 +107,7 @@ class Repository
             }
             [$before, $after] = $versions;
             $bytes += strlen($before) + strlen($after);
-            $changes[] = ['path' => $path, 'before' => $bytes < 1000000 ? $before : null,
+            $changes[] = ['path' => $path, ...($baseline === null ? [] : ['baseline_hash'=>$baseline[$path] ?? null]), 'before' => $bytes < 1000000 ? $before : null,
                 'after' => $bytes < 1000000 ? $after : null];
         }
         return $changes;

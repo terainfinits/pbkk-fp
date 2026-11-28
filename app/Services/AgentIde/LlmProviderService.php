@@ -173,8 +173,9 @@ class LlmProviderService
     {
         $effectiveModel = $model ?: 'qwen3:14b';
         $baseUrl = config('services.senopati.base_url');
-        $endpoint = rtrim($baseUrl, '/') . '/llm-gateway/v1/chat/completions';
+        $endpoint = config('services.senopati.endpoint') ?: rtrim($baseUrl, '/') . '/llm-gateway/v1/chat/completions';
 
+        $started = hrtime(true);
         try {
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $apiKey,
@@ -187,17 +188,20 @@ class LlmProviderService
                 ],
             ]);
         } catch (ConnectionException $e) {
-            // DNS/connection failure is environmental (Senopati only
-            // resolves inside the ITS campus network / ITS VPN). Flag it so the
-            // controller can fall back to the built-in generator. Auth errors
-            // and malformed requests are NOT caught here — they fail loudly.
+            \Illuminate\Support\Facades\Log::warning('Senopati chat', [
+                'error' => \App\Services\SenopatiConnection::describe($e),
+                'duration_ms' => (int) ((hrtime(true)-$started)/1e6),
+            ]);
             return [
                 'success' => false,
                 'network_error' => true,
-                'error' => 'The Senopati host could not be resolved because access is restricted to the ITS campus network or ITS VPN.',
+                'error' => \App\Services\SenopatiConnection::describe($e),
             ];
         }
 
+        \Illuminate\Support\Facades\Log::info('Senopati chat', [
+            'http_status' => $response->status(), 'duration_ms' => (int) ((hrtime(true)-$started)/1e6),
+        ]);
         if ($response->successful()) {
             $text = $response->json('choices.0.message.content', '');
             return $text !== ''
